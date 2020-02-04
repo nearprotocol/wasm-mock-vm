@@ -72,7 +72,12 @@ struct VM {
     builder: VMLogicBuilder
 }
 
-
+fn updateRegisters(vm: &mut VMLogic, regs: JsValue) {
+    let registers: Vec<(u64,Vec<u8>)> = serde_wasm_bindgen::from_value(regs).unwrap();
+    for (id, data) in registers {
+        vm.wrapped_internal_write_register(id, &data);
+    }
+}
 
 #[wasm_bindgen]
 impl VM {
@@ -118,10 +123,11 @@ impl VM {
     // // # Cost
     // //
     // // `base + read_register_base + read_register_byte * num_bytes + write_memory_base + write_memory_byte * num_bytes`
-    pub fn read_register(&mut self, register_id: u64, ptr: u64, hash_map: JsValue) -> () {
+    pub fn read_register(&mut self, register_id: u64, ptr: u64, regs: JsValue) -> () {
         let mut vm = self.builder.build(VM::context());
-        let data = &vec![42];
-        vm.wrapped_internal_write_register(register_id, &data);
+        updateRegisters(&mut vm, regs);
+        // let data = &vec![42];
+        // vm.wrapped_internal_write_register(register_id, &data);
         vm.read_register(register_id, ptr).unwrap()
     }
 

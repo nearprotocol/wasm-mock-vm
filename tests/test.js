@@ -30,9 +30,9 @@ global.read_memory_u8 = (offset) => memory[offset];
   // If `offset + buffer.len()` is outside the smart contract memory.
 global.write_memory = (offset, buffer) => {memory[offset] = buffer[0]}
 
-let map = new Map();
-map.set(BigInt(0), new Uint8Array([42]));
+let map = new Array();
+map[0] = [0, new Uint8Array([42])];
 debugger;
 vm.read_register(BigInt(0), BigInt(0), map);
 
-debugger;
+console.log(memory);
