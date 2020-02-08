@@ -1,17 +1,16 @@
+use crate::mock::context::new_vm_context;
+use crate::mock::external::MockedExternal;
 use crate::mock::memory::*;
-use crate::mock::external::{MockedExternal};
-use crate::mock::context::{new_vm_context};
 use ::std::cell::RefCell;
-use ::std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
-use wasm_bindgen::prelude::*;
-use near_vm_logic::*; 
 use near_vm_logic::types::*;
+use near_vm_logic::*;
+use wasm_bindgen::prelude::*;
 
-use near_runtime_fees::{RuntimeFeesConfig};
+use near_runtime_fees::RuntimeFeesConfig;
 
 type Result<T, E> = ::std::result::Result<T, E>;
-
 
 pub struct VMLogicBuilder {
     pub ext: MockedExternal,
@@ -59,44 +58,80 @@ impl VMLogicBuilder {
 type RefOpt<T> = RefCell<Option<T>>;
 
 thread_local! {
-    // Low-level blockchain interface wrapped by the environment. Prefer using `env::*` and `testing_env`
-    // for interacting with the real and fake blockchains.
-        pub static BUILDER: RefOpt<VMLogicBuilder> = RefCell::new(None);
-        pub static RUNTIME: RefOpt<VMLogic<'static>> = RefCell::new(None);
-        pub static EXT: RefOpt<MockedExternal> = RefCell::new(None);
-        pub static CONTEXT: RefOpt<VMContext> = RefCell::new(None);
-    }
+// Low-level blockchain interface wrapped by the environment. Prefer using `env::*` and `testing_env`
+// for interacting with the real and fake blockchains.
+    pub static BUILDER: RefOpt<VMLogicBuilder> = RefCell::new(None);
+    pub static STATE: RefOpt<SimpleState> = RefCell::new(None);
+    pub static EXT: RefOpt<MockedExternal> = RefCell::new(None);
+    pub static CONTEXT: RefOpt<VMContext> = RefCell::new(None);
+}
+
+#[wasm_bindgen]
+pub fn set_context(simple_context: JsValue) {
+    CONTEXT.with(|c| {
+        let mut context = new_vm_context();
+        context.input = serde_wasm_bindgen::from_value(simple_context).unwrap();
+        c.replace(Some(context));
+    });
+    // serde_wasm_bindgen::to_value(&context).unwrap()
+}
+
+#[derive(Default, Clone)]
+struct SimpleContext {
+    pub input: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, Default, Clone)]
+pub struct SimpleState {
+    registers: Vec<(u64, Vec<u8>)>,
+}
+
+#[wasm_bindgen]
+pub fn set_state(simple_state: JsValue) {
+    STATE.with(|s| s.replace(Some(serde_wasm_bindgen::from_value(simple_state).unwrap())));
+}
 
 #[wasm_bindgen]
 struct VM {
-    builder: VMLogicBuilder
-}
-
-fn updateRegisters(vm: &mut VMLogic, regs: JsValue) {
-    let registers: Vec<(u64,Vec<u8>)> = serde_wasm_bindgen::from_value(regs).unwrap();
-    for (id, data) in registers {
-        vm.wrapped_internal_write_register(id, &data);
-    }
+    builder: VMLogicBuilder,
+    state: SimpleState,
 }
 
 #[wasm_bindgen]
 impl VM {
-
-    pub fn new() -> Self {
+    #[wasm_bindgen(constructor)]
+    pub fn new(state: JsValue) -> Self {
         Self {
-            builder: VMLogicBuilder::free()
+            builder: VMLogicBuilder::free(),
+            state: serde_wasm_bindgen::from_value(state).unwrap(),
         }
     }
-
     fn context() -> VMContext {
         new_vm_context()
     }
 
+    fn update_registers(&mut self, registers: &std::collections::HashMap<u64, Vec<u8>>) {
+        self.state.registers.clear();
+        for (id, data) in registers.iter() {
+            self.state.registers.push((*id, data.clone()));
+        }
+    }
+    
+    fn runVM<T, F: FnOnce(&mut VMLogic) -> T>(&mut self, f: F) -> T {
+        let context = new_vm_context();
+        let mut vm = self.builder.build(context);
+        for (id, data) in &self.state.registers {
+            vm.wrapped_internal_write_register(*id, &data);
+        }
+        let res = f(&mut vm);
+        let regs = vm.registers;
+        self.update_registers(&regs);
+        res
+    }
 
     // // #################
     // // # Registers API #
     // // #################
-
 
     // // Convenience function for testing.
     // // pub fn wrapped_internal_write_register(&mut self, register_id: u64, data: &[u8]) -> () {
@@ -123,12 +158,10 @@ impl VM {
     // // # Cost
     // //
     // // `base + read_register_base + read_register_byte * num_bytes + write_memory_base + write_memory_byte * num_bytes`
-    pub fn read_register(&mut self, register_id: u64, ptr: u64, regs: JsValue) -> () {
-        let mut vm = self.builder.build(VM::context());
-        updateRegisters(&mut vm, regs);
+    pub fn read_register(&mut self, register_id: u64, ptr: u64) {
         // let data = &vec![42];
         // vm.wrapped_internal_write_register(register_id, &data);
-        vm.read_register(register_id, ptr).unwrap()
+        self.runVM(|vm| vm.read_register(register_id, ptr).unwrap())
     }
 
     // Returns the size of the blob stored in the given register.
@@ -159,9 +192,9 @@ impl VM {
     // # Cost
     //
     // `base + read_memory_base + read_memory_bytes * num_bytes + write_register_base + write_register_bytes * num_bytes`
-    // pub fn write_register(&mut self, register_id: u64, data_len: u64, data_ptr: u64) -> () {
-        // self.builder.build(self.context).write_register(register_id, data_len, data_ptr).unwrap()
-    // }
+    pub fn write_register(&mut self, register_id: u64, data_len: u64, data_ptr: u64) -> () {
+        self.runVM(|vm| vm.write_register(register_id, data_len, data_ptr).unwrap())
+    }
     // // ###################################
     // // # String reading helper functions #
     // // ###################################
@@ -266,9 +299,9 @@ impl VM {
     // // # Cost
     // //
     // // `base + write_register_base + write_register_byte * num_bytes`
-    // pub fn input(&mut self, register_id: u64) -> () {
-    //     self.vm.input(register_id).unwrap()
-    // }
+    pub fn input(&mut self, register_id: u64) -> () {
+        self.runVM(|vm| vm.input(register_id).unwrap())
+    }
     // // Returns the current block height.
     // //
     // // # Cost
@@ -586,7 +619,6 @@ impl VM {
     // ) -> u64 {
     //     self.vm.promise_batch_then(promise_idx, accound_id_len, account_id_ptr).unwrap()
     // }
-
 
     // // Appends `CreateAccount` action to the batch of actions for the given promise pointed by
     // // `promise_idx`.
@@ -1048,7 +1080,6 @@ impl VM {
     //     self.vm.storage_write(key_len, key_ptr, value_len, value_ptr, register_id).unwrap()
     // }
 
-
     // // Reads the value stored under the given key.
     // // * If key is used copies the content of the value into the `register_id`, even if the content
     // //   is zero bytes. Returns `1`;
@@ -1184,4 +1215,3 @@ impl VM {
     // //     self.vm.outcome().unwrap()
     // // }
 }
-
