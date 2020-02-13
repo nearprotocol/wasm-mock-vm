@@ -1,6 +1,6 @@
 {
   "name": "wasm-mock-vm",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Mock Near VM core logic for unit testing",
   "main": "./pkg/wasm_mock_vm.js",
   "types": "./assembly/index.ts",
@@ -24,7 +24,7 @@
     "test": "node --experimental-wasm-bigint ./node_modules/.bin/asp"
   },
   "files": [
-    "./pkg/wasm_mock_vm*",
-    "./imports.js"
+    "pkg/",
+    "imports.js"
   ]
 }
