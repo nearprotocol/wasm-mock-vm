@@ -1,0 +1,30 @@
+{
+  "name": "wasm-mock-vm",
+  "version": "1.0.2",
+  "description": "Mock Near VM core logic for unit testing",
+  "main": "./pkg/wasm_mock_vm.js",
+  "types": "./assembly/index.ts",
+  "author": "Willem Wyndham <willem@nearprotocol.com>",
+  "repository": {
+    "type": "git",
+    "url": "git@:nearprotocol/wasm-mock-vm.git"
+  },
+  "license": "APACHE",
+  "private": false,
+  "devDependencies": {
+    "@as-pect/cli": "^2.8.1",
+    "assemblyscript": "0.8.1",
+    "bs58": "^4.0.1",
+    "near-bindgen-as": "^1.2.0",
+    "near-runtime-ts": "^0.6.0"
+  },
+  "scripts": {
+    "build": "wasm-pack build --target nodejs",
+    "build:debug": "yarn build --debug",
+    "test": "node --experimental-wasm-bigint ./node_modules/.bin/asp"
+  },
+  "files": [
+    "./pkg/wasm_mock_vm*",
+    "./imports.js"
+  ]
+}
