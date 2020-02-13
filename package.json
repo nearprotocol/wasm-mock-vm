@@ -24,7 +24,8 @@
     "test": "node --experimental-wasm-bigint ./node_modules/.bin/asp"
   },
   "files": [
-    "pkg/",
-    "imports.js"
+    "pkg/wasm*",
+    "imports.js",
+    "assembly/index.ts"
   ]
 }
