@@ -8,7 +8,7 @@ This project uses `wasm-bindgen`, to create javascript bindings for the generate
 
 # Setup
 
-In a blank Near AssemblyScript project you can install the needed dependencies:
+In a blank Near AssemblyScript project you need to install the following dependencies:
 
 ```
 npm install --save-dev wasm-mock-vm @as-pect/cli
