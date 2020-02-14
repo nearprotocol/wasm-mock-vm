@@ -1,4 +1,10 @@
+const v8 = require('v8');
+v8.setFlagsFromString('--experimental-wasm-bigint');
+
 let rust = require(".");
+let fs = require("fs");
+let path = require("path");
+
 function toNum(x) { return parseInt(x.toString());}
 
 // http://www.onicos.com/staff/iz/amuse/javascript/expert/utf.txt
@@ -45,74 +51,85 @@ function UTF8toStr(array) {
     return out;
 }
 
+function findContext() {
+  let _path = require.resolve("./context.json", { paths: [ 
+              path.join(process.cwd(), "assembly", "__tests__"), // First look in project test file
+              process.cwd(), // Then Project root
+              __dirname // lastly in this directory to find the default values
+              ]
+              });
+  if (_path) {
+    return require(_path);
+  }
+  return null;
+}
+
 
 
 function createImports(memory) {
-
-  
   let I8 = () => new Uint8Array(memory.buffer);
 
-    function readUTF8Str(ptr) {
-      let buf = I8();
-      let arr = [];
-      while (b = buf[ptr] != 0) {
-        arr.push(b);
-        ptr++;
-      }
-      return UTF8toStr(arr);
+  function readUTF8Str(ptr) {
+    let buf = I8();
+    let arr = [];
+    while (buf[ptr] != 0) {
+      arr.push(buf[ptr]);
+      ptr++;
     }
+    return UTF8toStr(arr);
+  }
 
-    // Returns whether the memory interval is completely inside the smart contract memory.
-    global.fits_memory = function (offset, len) {
-      return toNum(offset) + toNum(len) < I8().length;
-    }
+  // Returns whether the memory interval is completely inside the smart contract memory.
+  global.fits_memory = function (offset, len) {
+    return toNum(offset) + toNum(len) < I8().length;
+  }
 
-    // Reads the content of the given memory interval.
-    //
-    // # Panics
-    //
-    // If memory interval is outside the smart contract memory.
-    global.read_memory =  function(offset, buffer) {
-        buffer.set(I8().slice(toNum(offset), toNum(offset) + buffer.length), 0)
-        
-    };
+  // Reads the content of the given memory interval.
+  //
+  // # Panics
+  //
+  // If memory interval is outside the smart contract memory.
+  global.read_memory =  function(offset, buffer) {
+      buffer.set(I8().slice(toNum(offset), toNum(offset) + buffer.length), 0)
+      
+  };
 
-    // Reads a single byte from the memory.
-    //
-    // # Panics
-    //
-    // If pointer is outside the smart contract memory.
-    global.read_memory_u8 = function (offset) {
-      return I8()[toNum(offset)];
-    }
+  // Reads a single byte from the memory.
+  //
+  // # Panics
+  //
+  // If pointer is outside the smart contract memory.
+  global.read_memory_u8 = function (offset) {
+    return I8()[toNum(offset)];
+  }
 
-    // Writes the buffer into the smart contract memory.
-    //
-    // # Panics
-    //
-    // If `offset + buffer.len()` is outside the smart contract memory.
-    global.write_memory = function(offset, buffer) {
-        I8().set(buffer, toNum(offset));
-    }
+  // Writes the buffer into the smart contract memory.
+  //
+  // # Panics
+  //
+  // If `offset + buffer.len()` is outside the smart contract memory.
+  global.write_memory = function(offset, buffer) {
+      I8().set(buffer, toNum(offset));
+  }
 
-    const current_account_id = "alice"; 
-    const signer_account_id = "bob";
-    const signer_account_pk = "HuxUynD5GdrcZ5MauxJuu74sGHgS6wLfCqqhQkLWK";
-    const predecessor_account_id = "carol";
-    const input = "{ arg1: 1 }";
-    const block_index = 10;
-    const block_timestamp = 42;
-    const account_balance = 2;
-    const account_locked_balance = 1;
-    const storage_usage = 12;
-    const attached_deposit = 2;
-    const prepaid_gas = 10**(14);
-    const random_seed = "HuxUynD5GdrcZ5MauxJuu74sGHgS6wLfCqqhQkLWK";
-    const is_view = false;
-    const output_data_receivers= new Uint8Array([]);
+  const current_account_id = "alice"; 
+  const signer_account_id = "bob";
+  const signer_account_pk = "HuxUynD5GdrcZ5MauxJuu74sGHgS6wLfCqqhQkLWK";
+  const predecessor_account_id = "carol";
+  const input = "{ arg1: 1 }";
+  const block_index = 10;
+  const block_timestamp = 42;
+  const account_balance = 2;
+  const account_locked_balance = 1;
+  const storage_usage = 12;
+  const attached_deposit = 2;
+  const prepaid_gas = 10**(14);
+  const random_seed = "HuxUynD5GdrcZ5MauxJuu74sGHgS6wLfCqqhQkLWK";
+  const is_view = false;
+  const output_data_receivers= new Uint8Array([]);
 
-
-    context =  {
+  function createContext() {
+    const _default = {
         /// The account id of the current contract that we are executing.
         current_account_id, // string
         /// The account id of that signed the original transaction that led to this
@@ -120,10 +137,10 @@ function createImports(memory) {
         signer_account_id, // string
         /// The public key that was used to sign the original transaction that led to
         /// this execution.
-        signer_account_pk,
-        predecessor_account_id,
-        input,
-        block_index,
+        signer_account_pk, // string base58
+        predecessor_account_id, // string
+        input, // JSON string
+        block_index, // u128
         block_timestamp,
         account_balance,
         account_locked_balance,
@@ -134,208 +151,249 @@ function createImports(memory) {
         is_view,
         output_data_receivers,
     }
+    
+    return findContext() || _default;
+  }
 
-    let vm = new rust.VM(context);
-
-    return {
-      vm: {
-          saveState() {
-            vm.save_state();
-          },
-          restoreState() {
-              vm.restore_state();
-          },
-          setCurrent_account_id(s) {
-            context.current_account_id = readUTF8Str(s);
-            vm.set_context(context);
-          },
-          setInput(s) {
-            context.input = readUTF8Str(s);
-            vm.set_context(context);
-          }
+  context =  createContext();
+  vm = new rust.VM(context);
+  return {
+    vm: {
+        saveState() {
+          vm.save_state();
         },
-        env: {
-          panic(){},
-          write_register(data_len, data_ptr, register_id) {
-            return vm.write_register(data_len, data_ptr, register_id);
-          },
-          read_register(register_id, ptr) {
-              return vm.read_register(register_id, ptr);
-          },
-          register_len(register_id) {
-              return vm.register_len(register_id);
-          },
-          input(register_id) {
-            return vm.input(register_id);
-          },
-          storage_write(key_len, key_ptr, value_len, value_ptr, register_id) {
-            return vm.storage_write(key_len, key_ptr, value_len, value_ptr, register_id);
-          },
-          storage_read(key_len, key_ptr, register_id) {
-            return vm.storage_read(key_len, key_ptr, register_id);
-          },
+        restoreState() {
+          vm.restore_state();
+        },
+        saveContext() {
+          vm.save_context();
+        },
+        restoreContext() {
+          vm.restore_context();
+        },
+        setCurrent_account_id(s) {
+          vm.set_current_account_id(readUTF8Str(s));
+        },
+        setInput(s) {
+          vm.set_input(readUTF8Str(s));
+        },
+        setSigner_account_id(s) {
+          vm.set_signer_account_id(readUTF8Str(s));
+        }, // string
+        /// The public key that was used to sign the original transaction that led to
+        /// this execution.
+        setSigner_account_pk(s) {
+          vm.set_signer_account_pk(readUTF8Str(s));
+        }, // string base58
+        setPredecessor_account_id(s) {
+          vm.set_predecessor_account_id(readUTF8Str(s));
+        }, // string
+        setBlock_index(block_height) {
+          vm.set_block_index(block_height);
+        }, // u128
+        setBlock_timestamp(stmp) {
+          vm.set_block_timestamp(stmp);
+        },
+        setAccount_balance(lo, hi) {
+          //TODO: actually  u128
+          vm.set_account_balance(lo, hi);
+        },
+        setAccount_locked_balance(lo, hi) {
+          vm.set_account_locked_balance(lo, hi);
+        },
+        setStorage_usage(amt) {
+          vm.set_storage_usage(amt);
+        },
+        setAttached_deposit(lo, hi) {
+          vm.set_attached_deposit(lo, hi);
+        },
+        setPrepaid_gas(_u64) {
+          vm.set_prepaid_gas(_u64);
+        },
+        setRandom_seed(s) {
+          vm.set_random_seed(readUTF8Str(s));
+        },
+        setIs_view(b) {
+          vm.set_is_view(b==1);
+        },
+        setOutput_data_receivers(arr) {
+          vm.set_output_data_receivers(arr);
+        },
+      },
+      env: {
+        /// #################
+        /// # Registers API #
+        /// #################
+        write_register(data_len, data_ptr, register_id) {
+          return vm.write_register(data_len, data_ptr, register_id);
+        },
+        read_register(register_id, ptr) {
+            return vm.read_register(register_id, ptr);
+        },
+        register_len(register_id) {
+            return vm.register_len(register_id);
+        },
+        // ###############
+        // # Context API #
+        // ###############
+        current_account_id(register_id) {
+          return vm.current_account_id(register_id);
+        },
+        signer_account_id(register_id) {
+          return vm.signer_account_id(register_id);
+        },
+        signer_account_pk(register_id) {
+          return vm.signer_account_pk(register_id);
+        },
+        predecessor_account_id(register_id) {
+          return vm.predecessor_account_id(register_id);
+        },
+        input(register_id) {
+          return vm.input(register_id);
+        },
+        block_index() {
+          return vm.block_index();
+        },
+        storage_usage() {
+          return vm.storage_usage();
+        },
 
-  // ###############
-  // # Context API #
-  // ###############
-          current_account_id(register_id) {
-            return vm.current_account_id(register_id);
-          },
-          signer_account_id(register_id) {
-            return vm.signer_account_id(register_id);
-          },
-          signer_account_pk(register_id) {
-            return vm.signer_account_pk(register_id);
-          },
-          predecessor_account_id(register_id) {
-            return vm.predecessor_account_id(register_id);
-          },
-          input(register_id) {
-            return vm.input(register_id);
-          },
-          block_index() {
-            return vm.block_index();
-          },
-          storage_usage() {
-            return vm.storage_usage();
-          },
+        // #################
+        // # Economics API #
+        // #################
+        account_balance(balance_ptr) {
+          return vm.account_balance(balance_ptr);
+        },
+        attached_deposit(balance_ptr) {
+          return vm.attached_deposit(balance_ptr);
+        },
+        prepaid_gas() {
+          return vm.prepaid_gas();
+        },
+        used_gas() {
+          return vm.used_gas();
+        },
 
-  // #################
-  // # Economics API #
-  // #################
-          account_balance(balance_ptr) {
-            return vm.account_balance(balance_ptr);
-          },
-          attached_deposit(balance_ptr) {
-            return vm.attached_deposit(balance_ptr);
-          },
-          prepaid_gas() {
-            return vm.prepaid_gas();
-          },
-          used_gas() {
-            return vm.used_gas();
-          },
+        // ############
+        // # Math API #
+        // ############
+        random_seed(register_id) {
+          return vm.random_seed(register_id);
+        },
+        sha256(value_len, value_ptr, register_id) {
+          return vm.sha256(value_len, value_ptr, register_id);
+        },
+        keccak256(value_len, value_ptr, register_id) {
+          return vm.keccak256(value_len, value_ptr, register_id);
+        },
+        keccak512(value_len, value_ptr, register_id) {
+          return vm.keccak512(value_len, value_ptr, register_id);
+        },
 
-  // ############
-  // # Math API #
-  // ############
-          random_seed(register_id) {
-            return vm.random_seed(register_id);
-          },
-          sha256(value_len, value_ptr, register_id) {
-            return vm.sha256(value_len, value_ptr, register_id);
-          },
-          keccak256(value_len, value_ptr, register_id) {
-            return vm.keccak256(value_len, value_ptr, register_id);
-          },
-          keccak512(value_len, value_ptr, register_id) {
-            return vm.keccak512(value_len, value_ptr, register_id);
-          },
+        // #####################
+        // # Miscellaneous API #
+        // #####################
+        value_return(value_len, value_ptr) {
+          return vm.value_return(value_len, value_ptr);
+        },
+        panic() {
+          return vm.panic();
+        },
+        log_utf8(len, ptr) {
+          return vm.log_utf8(len, ptr);
+        },
+        log_utf16(len, ptr) {
+          return vm.log_utf16(len, ptr);
+        },
 
-  // // #####################
-  // // # Miscellaneous API #
-  // // #####################
-          value_return(value_len, value_ptr) {
-            return vm.value_return(value_len, value_ptr);
-          },
-          panic() {
-            return vm.panic();
-          },
-          log_utf8(len, ptr) {
-            return vm.log_utf8(len, ptr);
-          },
-          log_utf16(len, ptr) {
-            return vm.log_utf16(len, ptr);
-          },
+        // ################
+        // # Promises API #
+        // ################
+        promise_create(account_id_len,account_id_ptr,method_name_len,method_name_ptr,arguments_len, arguments_ptr, amount_ptr, gas) {
+          return vm.promise_create(account_id_len,account_id_ptr,method_name_len,method_name_ptr,arguments_len, arguments_ptr, amount_ptr, gas);
+        },
+        promise_then( promise_index, account_id_len, account_id_ptr, method_name_len, method_name_ptr, arguments_len, arguments_ptr, amount_ptr, gas) {
+          return vm.promise_then( promise_index, account_id_len, account_id_ptr, method_name_len, method_name_ptr, arguments_len, arguments_ptr, amount_ptr, gas);
+        },
+        promise_and(promise_idx_ptr, promise_idx_count) {
+          return vm.promise_and(promise_idx_ptr, promise_idx_count);
+        },
+        promise_results_count() {
+          return vm.promise_results_count();
+        },
+        promise_result(result_idx, register_id) {
+          return vm.promise_result(result_idx, register_id);
+        },
+        promise_return(promise_id) {
+          return vm.promise_return(promise_id);
+        },
+        promise_batch_create(account_id_len, account_id_ptr) {
+          return vm.promise_batch_create(account_id_len, account_id_ptr);
+        },
+        promise_batch_then(promise_index, account_id_len, account_id_ptr) {
+          return vm.promise_batch_then(promise_index, account_id_len, account_id_ptr);
+        },
 
-  // // ################
-  // // # Promises API #
-  // // ################
-          promise_create(account_id_len,account_id_ptr,method_name_len,method_name_ptr,arguments_len, arguments_ptr, amount_ptr, gas) {
-            return vm.promise_create(account_id_len,account_id_ptr,method_name_len,method_name_ptr,arguments_len, arguments_ptr, amount_ptr, gas);
-          },
-          promise_then( promise_index, account_id_len, account_id_ptr, method_name_len, method_name_ptr, arguments_len, arguments_ptr, amount_ptr, gas) {
-            return vm.promise_then( promise_index, account_id_len, account_id_ptr, method_name_len, method_name_ptr, arguments_len, arguments_ptr, amount_ptr, gas);
-          },
-          promise_and(promise_idx_ptr, promise_idx_count) {
-            return vm.promise_and(promise_idx_ptr, promise_idx_count);
-          },
-          promise_results_count() {
-            return vm.promise_results_count();
-          },
-          promise_result(result_idx, register_id) {
-            return vm.promise_result(result_idx, register_id);
-          },
-          promise_return(promise_id) {
-            return vm.promise_return(promise_id);
-          },
-          promise_batch_create(account_id_len, account_id_ptr) {
-            return vm.promise_batch_create(account_id_len, account_id_ptr);
-          },
-          promise_batch_then(promise_index, account_id_len, account_id_ptr) {
-            return vm.promise_batch_then(promise_index, account_id_len, account_id_ptr);
-          },
+        // #######################
+        // # Promise API actions #
+        // #######################
+        promise_batch_action_create_account(promise_index) {
+          return vm.promise_batch_action_create_account(promise_index);
+        },
+        promise_batch_action_deploy_contract(promise_index, code_len, code_ptr) {
+          return vm.promise_batch_action_deploy_contract(promise_index, code_len, code_ptr);
+        },
+        promise_batch_action_function_call(promise_index, method_name_len, method_name_ptr, arguments_len, arguments_ptr, amount_ptr, gas) {
+          return vm.promise_batch_action_function_call(promise_index, method_name_len, method_name_ptr, arguments_len, arguments_ptr, amount_ptr, gas);
+        },
+        promise_batch_action_transfer(promise_index, amount_ptr) {
+          return vm.promise_batch_action_transfer(promise_index, amount_ptr);
+        },
+        promise_batch_action_stake(promise_index, amount_ptr, public_key_len, public_key_ptr) {
+          return vm.promise_batch_action_stake(promise_index, amount_ptr, public_key_len, public_key_ptr);
+        },
+        promise_batch_action_add_key_with_full_access(promise_index, public_key_len, public_key_ptr, nonce) {
+          return vm.promise_batch_action_add_key_with_full_access(promise_index, public_key_len, public_key_ptr, nonce);
+        },
+        promise_batch_action_add_key_with_function_call(promise_index, public_key_len, public_key_ptr, nonce, allowance_ptr, receiver_id_len, receiver_id_ptr, method_names_len, method_names_ptr) {
+          return vm.promise_batch_action_add_key_with_function_call(promise_index, public_key_len, public_key_ptr, nonce, allowance_ptr, receiver_id_len, receiver_id_ptr, method_names_len, method_names_ptr);
+        },
+        promise_batch_action_delete_key(promise_index, public_key_len, public_key_ptr) {
+          return vm.promise_batch_action_delete_key(promise_index, public_key_len, public_key_ptr);
+        },
+        promise_batch_action_delete_account(promise_index, beneficiary_id_len, beneficiary_id_ptr) {
+          return vm.promise_batch_action_delete_account(promise_index, beneficiary_id_len, beneficiary_id_ptr);
+        },
 
-  // // #######################
-  // // # Promise API actions #
-  // // #######################
-          promise_batch_action_create_account(promise_index) {
-            return vm.promise_batch_action_create_account(promise_index);
-          },
-          promise_batch_action_deploy_contract(promise_index, code_len, code_ptr) {
-            return vm.promise_batch_action_deploy_contract(promise_index, code_len, code_ptr);
-          },
-          promise_batch_action_function_call(promise_index, method_name_len, method_name_ptr, arguments_len, arguments_ptr, amount_ptr, gas) {
-            return vm.promise_batch_action_function_call(promise_index, method_name_len, method_name_ptr, arguments_len, arguments_ptr, amount_ptr, gas);
-          },
-          promise_batch_action_transfer(promise_index, amount_ptr) {
-            return vm.promise_batch_action_transfer(promise_index, amount_ptr);
-          },
-          promise_batch_action_stake(promise_index, amount_ptr, public_key_len, public_key_ptr) {
-            return vm.promise_batch_action_stake(promise_index, amount_ptr, public_key_len, public_key_ptr);
-          },
-          promise_batch_action_add_key_with_full_access(promise_index, public_key_len, public_key_ptr, nonce) {
-            return vm.promise_batch_action_add_key_with_full_access(promise_index, public_key_len, public_key_ptr, nonce);
-          },
-          promise_batch_action_add_key_with_function_call(promise_index, public_key_len, public_key_ptr, nonce, allowance_ptr, receiver_id_len, receiver_id_ptr, method_names_len, method_names_ptr) {
-            return vm.promise_batch_action_add_key_with_function_call(promise_index, public_key_len, public_key_ptr, nonce, allowance_ptr, receiver_id_len, receiver_id_ptr, method_names_len, method_names_ptr);
-          },
-          promise_batch_action_delete_key(promise_index, public_key_len, public_key_ptr) {
-            return vm.promise_batch_action_delete_key(promise_index, public_key_len, public_key_ptr);
-          },
-          promise_batch_action_delete_account(promise_index, beneficiary_id_len, beneficiary_id_ptr) {
-            return vm.promise_batch_action_delete_account(promise_index, beneficiary_id_len, beneficiary_id_ptr);
-          },
-
-  // // ###############
-  // // # Storage API #
-  // // ###############
-  //         storage_write(key_len, key_ptr, value_len, value_ptr, register_id) {
-  //           return vm.storage_write(key_len, key_ptr, value_len, value_ptr, register_id);
-  //         },
-  //         storage_read(key_len, key_ptr, register_id) {
-  //           return vm.storage_read(key_len, key_ptr, register_id);
-  //         },
-          storage_remove(key_len, key_ptr, register_id) {
-            return vm.storage_remove(key_len, key_ptr, register_id);
-          },
-          storage_has_key(key_len, key_ptr) {
-            return vm.storage_has_key(key_len, key_ptr);
-          },
-          storage_iter_prefix(prefix_len, prefix_ptr) {
-            return vm.storage_iter_prefix(prefix_len, prefix_ptr);
-          },
-          storage_iter_range(start_len, start_ptr, end_len, end_ptr) {
-            return vm.storage_iter_range(start_len, start_ptr, end_len, end_ptr);
-          },
-          storage_iter_next(iterator_id, key_register_id, value_register_id) {
-            return vm.storage_iter_next(iterator_id, key_register_id, value_register_id);
-          },
-  // Function for the injected gas counter. Automatically called by the gas meter.
-          gas(gas_amount) {
-            return vm.gas(gas_amount);
-          }
-      }
+        // ###############
+        // # Storage API #
+        // ###############
+        storage_write(key_len, key_ptr, value_len, value_ptr, register_id) {
+          return vm.storage_write(key_len, key_ptr, value_len, value_ptr, register_id);
+        },
+        storage_read(key_len, key_ptr, register_id) {
+          return vm.storage_read(key_len, key_ptr, register_id);
+        },
+        storage_remove(key_len, key_ptr, register_id) {
+          return vm.storage_remove(key_len, key_ptr, register_id);
+        },
+        storage_has_key(key_len, key_ptr) {
+          return vm.storage_has_key(key_len, key_ptr);
+        },
+        storage_iter_prefix(prefix_len, prefix_ptr) {
+          return vm.storage_iter_prefix(prefix_len, prefix_ptr);
+        },
+        storage_iter_range(start_len, start_ptr, end_len, end_ptr) {
+          return vm.storage_iter_range(start_len, start_ptr, end_len, end_ptr);
+        },
+        storage_iter_next(iterator_id, key_register_id, value_register_id) {
+          return vm.storage_iter_next(iterator_id, key_register_id, value_register_id);
+        },
+        // Function for the injected gas counter. Automatically called by the gas meter.
+        gas(gas_amount) {
+          return vm.gas(gas_amount);
+        }
+    }
   };
 }
 module.exports = {

@@ -12,7 +12,7 @@ use crate::utils::*;
 
 type Result<T, E> = ::std::result::Result<T, E>;
 
-type VMResult<T> = Result<T, HostErrorOrStorageError>;
+type VMResult<T> = Result<T, VMLogicError>;
 
 pub struct VMLogicBuilder {
     pub ext: MockedExternal,
@@ -62,7 +62,13 @@ pub struct VM {
     builder: VMLogicBuilder,
     context: VMContext,
     internal_state: Option<InternalVMState>,
-    saved_state: Option<InternalVMState>
+    saved_state: Option<InternalVMState>,
+    saved_context: Option<VMContext>,
+    saved_ext: Option<MockedExternal>
+}
+
+fn print_str(s: &str) {
+    console::log_1(&s.into())
 }
 
 
@@ -71,26 +77,17 @@ impl VM {
     #[wasm_bindgen(constructor)]
     pub fn new(context: JsValue) -> Self {
         set_panic_hook();
+        let c: VMContext = serde_wasm_bindgen::from_value(context).unwrap();
         Self {
             builder: VMLogicBuilder::free(),
-            context: serde_wasm_bindgen::from_value(context).unwrap(),
+            context: c,
             internal_state: None,
-            saved_state: None
+            saved_state: None,
+            saved_context: None,
+            saved_ext: None
         }
     }
-
-    pub fn save_state(&mut self) {
-        self.saved_state = self.internal_state.clone();
-    }
-
-    pub fn restore_state(&mut self) {
-        self.internal_state = self.saved_state.clone();
-    }
-
-    pub fn setContext(&mut self, context: JsValue) {
-        self.context = serde_wasm_bindgen::from_value(context).unwrap()
-    }
-
+    
     fn run_vm<T, F: FnOnce(&mut VMLogic) -> VMResult<T>>(&mut self, f: F) -> VMResult<T> {
         let mut vm = self.builder.build(self.context.clone());
         if self.internal_state.is_some() {
@@ -102,6 +99,99 @@ impl VM {
         }
         res
     }
+    
+    pub fn save_state(&mut self) {
+        self.saved_state = self.internal_state.clone();
+        self.saved_ext = Some(self.builder.ext.clone());
+    }
+
+    pub fn restore_state(&mut self) {
+        self.internal_state = self.saved_state.clone();
+        if self.saved_ext.is_some() {
+            self.builder.ext = self.saved_ext.as_ref().unwrap().clone()
+        }
+    }
+
+    pub fn save_context(&mut self) {
+        self.saved_context = Some(self.context.clone())
+    }
+
+    pub fn restore_context(&mut self) {
+        if self.saved_context.is_some() {
+            self.context = self.saved_context.as_ref().unwrap().clone();
+        }
+    }
+
+    pub fn set_context(&mut self, context: JsValue) {
+        self.context = serde_wasm_bindgen::from_value(context).unwrap()
+    }
+
+    pub fn set_current_account_id(&mut self, s: JsValue) {
+      self.context.current_account_id = serde_wasm_bindgen::from_value(s).unwrap()
+    }
+
+    pub fn set_input(&mut self, s: JsValue) {
+      self.context.input = serde_wasm_bindgen::from_value(s).unwrap()
+    }
+
+    pub fn set_signer_account_id(&mut self, s: JsValue) {
+      self.context.signer_account_id = serde_wasm_bindgen::from_value(s).unwrap()
+    }
+ // string
+      /// The public key that was used to sign the original transaction that led to
+      /// this execution.
+    pub fn set_signer_account_pk(&mut self, s: JsValue) {
+      self.context.signer_account_pk = serde_wasm_bindgen::from_value(s).unwrap()
+    }
+ // string base58
+    pub fn set_predecessor_account_id(&mut self, s: JsValue) {
+      self.context.predecessor_account_id = serde_wasm_bindgen::from_value(s).unwrap()
+    }
+ // string
+    pub fn set_block_index(&mut self, block_height: u64) {
+      self.context.block_index = block_height
+    }
+ // u128
+    pub fn set_block_timestamp(&mut self, stmp: u64) {
+      self.context.block_timestamp = stmp
+    }
+
+    pub fn set_account_balance(&mut self, lo: u64, hi: u64) {
+        let _u128 = u128::from(hi).rotate_left(64) + u128::from(lo);
+        self.context.account_balance = _u128 // TODO: serde_wasm_bindgen::from_value(_u128).unwrap()
+    }
+
+    pub fn set_account_locked_balance(&mut self, lo: u64, hi: u64) {
+        let _u128 = u128::from(hi).rotate_left(64) + u128::from(lo);
+        self.context.account_locked_balance = _u128 // TODO: serde_wasm_bindgen::from_value(_u128).unwrap()
+    }
+
+    pub fn set_storage_usage(&mut self, amt: JsValue) {
+      self.context.storage_usage = serde_wasm_bindgen::from_value(amt).unwrap()
+    }
+
+    pub fn set_attached_deposit(&mut self, lo: u64, hi: u64) {
+        let _u128 = u128::from(hi).rotate_left(64) + u128::from(lo);
+        self.context.attached_deposit = _u128.into(); // TODO: serde_wasm_bindgen::from_value(_u128).unwrap()
+    }
+
+    pub fn set_prepaid_gas(&mut self, _u64: u64) {
+      self.context.prepaid_gas = _u64
+    }
+
+    pub fn set_random_seed(&mut self, s: JsValue) {
+      self.context.random_seed = serde_wasm_bindgen::from_value(s).unwrap()
+    }
+
+    pub fn set_is_view(&mut self, b: bool) {
+      self.context.is_view = b
+    }
+
+    pub fn set_output_data_receivers(&mut self, arr: JsValue) {
+      self.context.output_data_receivers = serde_wasm_bindgen::from_value(arr).unwrap()
+    }
+
+
 
    /// #################
    /// # Registers API #
@@ -133,9 +223,8 @@ impl VM {
         let res = self.run_vm(|vm| vm.read_register(register_id, ptr));
         match res {
             Ok(()) => (),
-            Err(HostErrorOrStorageError::HostError(_e)) => console::log_1(&"Host Error".into()),
-            Err(HostErrorOrStorageError::StorageError(e)) => panic!(e)
-            
+            Err(VMLogicError::HostError(_e)) => console::log_1(&"Host Error".into()),
+            Err(e) => panic!(e)
         }
     }
 
@@ -318,6 +407,7 @@ impl VM {
    ///
    /// `base + memory_write_base + memory_write_size * 16`
     pub fn account_balance(&mut self, balance_ptr: u64) -> () {
+        // self.builder.memory.write_memory(balance_ptr, &self.context.account_balance.to_le_bytes())
         self.run_vm(|vm| vm.account_balance(balance_ptr)).unwrap()
     }
    /// The current amount of tokens locked due to staking.
@@ -903,7 +993,7 @@ impl VM {
    /// # Miscellaneous API #
    /// #####################
 
-   /// Sets the blob of data as the return value of the contract.
+   /// sets the blob of data as the return value of the contract.
    ///
    /// # Errors
    ///
@@ -1147,10 +1237,6 @@ impl VM {
         value_register_id: u64,
     ) -> u64 {
         self.run_vm(|vm| vm.storage_iter_next(iterator_id, key_register_id, value_register_id)).unwrap()
-        //     Ok(i) => i,
-        //     Err(_e) => 0,
-        //     // Err(e) => panic!(e)
-        // }
     }
 
    // Computes the outcome of execution.

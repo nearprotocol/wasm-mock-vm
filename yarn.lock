@@ -46,6 +46,11 @@ assemblyscript-json@0.2.0:
   resolved "https://registry.yarnpkg.com/assemblyscript-json/-/assemblyscript-json-0.2.0.tgz#e308c469547d26c7e9a7ef670a83b67061c7401c"
   integrity sha512-feJLBrec5O600QytfpkFb9oUYc+rANwtEUuSfIxVmjGcup4uR42maQTWOuIv8w/YOsHDMYHTXCwPQsuCynrwKA==
 
+assemblyscript-json@^0.3.0:
+  version "0.3.0"
+  resolved "https://registry.yarnpkg.com/assemblyscript-json/-/assemblyscript-json-0.3.0.tgz#f44e4001ecf8db5816bf74d2ef34868ec80e2867"
+  integrity sha512-CW05xrcMQ2mQUXj84Nq8KESyMHn5x+Z4NUwRQveUhWpWwPu7zp8oLNMLb5lKJ8CgRXmE8lxYSfe3/867sN+qRA==
+
 assemblyscript@0.8.1:
   version "0.8.1"
   resolved "https://registry.yarnpkg.com/assemblyscript/-/assemblyscript-0.8.1.tgz#c5c627492406e6d87f426897b3d92bd2a533f7fe"
@@ -167,10 +172,10 @@ minimatch@^3.0.4:
   dependencies:
     brace-expansion "^1.1.7"
 
-near-bindgen-as@^1.2.0:
-  version "1.2.0"
-  resolved "https://registry.yarnpkg.com/near-bindgen-as/-/near-bindgen-as-1.2.0.tgz#3d7d4e35256c98772c7192c7400e8f5c9df73b56"
-  integrity sha512-Ha+yFrQrPQ+koQyG5LY5Aod+t/GOnfDB+IIsiGBtHgHz5TmaTEQ6isU+Y/AZNv3oKAzGybVEHILOsUBiazBknQ==
+near-bindgen-as@^1.2.1:
+  version "1.2.1"
+  resolved "https://registry.yarnpkg.com/near-bindgen-as/-/near-bindgen-as-1.2.1.tgz#57b383c64f1cd096aad50f4732de2b1ee90db30d"
+  integrity sha512-iOV94uZv71ChWW4+bDOOwLRn46+Ez1CHGucZyR8LpVZHz3uspojdyvju7lrCHqL3jVS0uB/ACz/Sx9vrtdHyZQ==
 
 near-runtime-ts@^0.6.0:
   version "0.6.0"

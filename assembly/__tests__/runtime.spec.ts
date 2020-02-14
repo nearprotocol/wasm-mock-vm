@@ -1,7 +1,16 @@
 import { context, storage, base58, base64, PersistentMap, PersistentVector, PersistentDeque, PersistentTopN, ContractPromise, math } from "near-runtime-ts";
 import { TextMessage } from "./model";
 import { _testTextMessage, _testTextMessageTwo, _testBytes, _testBytesTwo } from "./util";
-import { saveState, restoreState, setCurrent_account_id } from "..";
+import { Context, VM } from "..";
+import { u128 } from "bignum";
+
+beforeAll(()=> {
+  VM.saveState();
+})
+
+afterAll(() => {
+  VM.restoreState();
+})
 
 // export function hello(): string {
 //   const s = simple("a"); // Test that we can call other export functions
@@ -28,21 +37,12 @@ describe("Encodings", () => {
 // }
 
 describe("Storage", (): void => {
-
-  beforeAll( () => {
-    saveState();
-  });
-
-  afterAll( () => {
-    restoreState();
-  });
-
   beforeEach(() => {
-    saveState();
+    VM.saveState();
   });
 
   afterEach(() => {
-    restoreState();
+    VM.restoreState();
   });
 
   it("String Roundtrip", () => {
@@ -347,9 +347,9 @@ describe("TopN", () => {
     expect(!topn.contains("nonexistentKey")).toBe(true, "empty topn - contains nonexistent key");
     topn.delete("nonexistentKey"); // this should not crash
     expect(topn.keysToRatings(new Array<string>(0)).length).toBe(0, "keys to ratings for empty topn is not empty");
-     expect(topn.getTop(10).length).toBe(0, "get top for empty topn returned non empty list")
+    expect(topn.getTop(10).length).toBe(0, "get top for empty topn returned non empty list")
     // expect(topn.getTopFromKey(10, "somekey").length).toBe(0, "getTopFromKey for empty topn returned non empty list") // fails due to key doesn't exist
-     expect(topn.getTopWithRating(10).length).toBe(0, "getTopWithRating for empty topn is not empty");
+    expect(topn.getTopWithRating(10).length).toBe(0, "getTopWithRating for empty topn is not empty");
     // expect(topn.getTopWithRatingFromKey(10, "somekey").length).toBe(0, "getTopWithRatingFromKey for empty topn is not empty"); // fails due to key doesn't exist
 
     topn.setRating("k1", 5);
@@ -360,11 +360,11 @@ describe("TopN", () => {
     topn.delete("nonexistentKey"); // this should not crash
     expect(topn.keysToRatings(["k1"]).length).toBe(1, "keys to ratings wrong for topn");
     expect(topn.keysToRatings(["k1"])[0].value).toBe(5, "keys to ratings wrong for topn");
-     expect(topn.getTop(10).length).toBe(1, "get top for topn returned non empty list");
-     expect(topn.getTop(10)[0]).toBe("k1", "wrong key in getTop")
-     expect(topn.getTopFromKey(10, "k1").length).toBe(0, "getTopFromKey for topn wrong result");
-     expect(topn.getTopWithRating(10).length).toBe(1, "getTopWithRating for topn with 1 element is wrong size");
-     expect(topn.getTopWithRatingFromKey(10, "k1").length).toBe(0, "getTopWithRatingFromKey for topn is not empty");
+    expect(topn.getTop(10).length).toBe(1, "get top for topn returned non empty list");
+    expect(topn.getTop(10)[0]).toBe("k1", "wrong key in getTop")
+    expect(topn.getTopFromKey(10, "k1").length).toBe(0, "getTopFromKey for topn wrong result");
+    expect(topn.getTopWithRating(10).length).toBe(1, "getTopWithRating for topn with 1 element is wrong size");
+    expect(topn.getTopWithRatingFromKey(10, "k1").length).toBe(0, "getTopWithRatingFromKey for topn is not empty");
 
     // Tests with 2 entries --  k1: 6, k: 5
     topn.setRating("k", 5);
@@ -401,25 +401,58 @@ describe("TopN", () => {
     expect(topn.keysToRatings(["k"]).length).toBe(1, "keys to ratings wrong for topn");
     expect(topn.keysToRatings(["k"])[0].value).toBe(6, "keys to ratings wrong for topn");
     expect(topn.getTop(10).length).toBe(1, "get top for topn returned non empty list");
-    expect(topn.getTop(10)[0]).toBe("k", "wrong key in getTop")
+    expect(topn.getTop(10)[0]).toBe("k", "wrong key in getTop");
     expect(topn.getTopFromKey(10, "k").length).toBe(0, "getTopFromKey for topn wrong result");
     expect(topn.getTopWithRating(10).length).toBe(1, "getTopWithRating for topn with 1 element is wrong size");
     expect(topn.getTopWithRatingFromKey(10, "k").length).toBe(0, "getTopWithRatingFromKey for topn is not empty");
   });
 });
 
-export function contextTests(): void {
-  expect(context.sender).toBe("bob", "Wrong sender");
-  setCurrent_account_id("contractaccount");
-  expect(context.contractName).toBe("contractaccount", "Wrong contract name");
-  // expect(context.blockIndex).toBe(113, "Wrong contract name");
-  // expect(context.attachedDeposit).toBe(u128.fromU64(7), "Wrong receivedAmount");
-  // expect(context.accountBalance).toBe(u128.fromU64(14), "Wrong receivedAmount");
-  // expect(context.prepaidGas).toBe(1000000000, "Wrong prepaid gas");
-  // expect(context.usedGas <= 1000000000).toBe(true, "Wrong used gas");
-  // expect(context.usedGas > 0).toBe(true, "Wrong used gas");
-  //expect(context.storageUsage).toBe(0, "Wrong storage usage"); TODO: test when implemented
-}
+describe("context", () => {
+
+  beforeEach(() => {
+    Context.saveContext();
+  });
+
+  afterEach(() => {
+    Context.restoreContext();
+  });
+
+  it("should read unchanged context", () => {
+    expect(context.sender).toBe("bob", "Wrong sender");    
+    expect(context.attachedDeposit).toBe(u128.fromU64(2), "Wrong receivedAmount");
+    expect(context.accountBalance).toBe(u128.fromU32(4), "Account Balance should inclode attached deposit");
+  });
+  
+  // describe("Account Balance", () => {
+  //   beforeAll(() => {
+    //   });
+    
+    //   it("should be updated when attached attached deposit is updated", () => {
+      //     let balance = context.accountBalance.toString();
+      //     let expectedBalance = u128.fromU64(9).toU64().toString();
+      //     expect(balance).toBe(expectedBalance, "Updating the attached deposit should update the account balance");
+      //   });
+      // });
+      
+      
+  it("should be editable", () => {
+    Context.setCurrent_account_id("contractaccount");
+    expect(context.contractName).toBe("contractaccount", "Wrong contract name");
+    Context.setBlock_index(113);
+    expect(context.blockIndex).toBe(113, "Wrong contract name");
+    Context.setAttached_deposit(u128.from(7));
+    expect(context.attachedDeposit.toString()).toBe(u128.fromU64(7).toString(), "Wrong receivedAmount");
+    // Context.setAccount_balance(u128.from(14))
+    
+    // expect(context.accountBalance).toBe(u128.fromU64(14), "Wrong receivedAmount");
+    Context.setPrepaid_gas(1000000000);
+    expect(context.prepaidGas).toBe(1000000000, "Wrong prepaid gas");
+    expect(context.usedGas <= 1000000000).toBe(true, "Wrong used gas");
+    // expect(context.usedGas > 0).toBe(true, "Wrong used gas");
+    //expect(context.storageUsage).toBe(0, "Wrong storage usage"); TODO: test when implemented
+  });
+});
 
 describe("promises", () => {
   it("should work", () => {

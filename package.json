@@ -14,18 +14,22 @@
   "devDependencies": {
     "@as-pect/cli": "^2.8.1",
     "assemblyscript": "0.8.1",
+    "assemblyscript-json": "^0.3.0",
     "bs58": "^4.0.1",
-    "near-bindgen-as": "^1.2.0",
+    "near-bindgen-as": "^1.2.1",
     "near-runtime-ts": "^0.6.0"
   },
   "scripts": {
     "build": "wasm-pack build --target nodejs",
     "build:debug": "yarn build --debug",
-    "test": "node --experimental-wasm-bigint ./node_modules/.bin/asp"
+    "test": "asp"
   },
   "files": [
     "pkg/wasm*",
     "imports.js",
     "assembly/index.ts"
-  ]
+  ],
+  "engines": {
+    "node" : ">=12.0.0" 
+  }
 }
