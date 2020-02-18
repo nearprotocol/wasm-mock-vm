@@ -35,7 +35,7 @@ This will configure mock Near VM and `as-pect`.
 
 ## Setting up Types
 To ensure that the types added by the runtime library are detected by your IDE include a type declaration file in your root `assembly` folder, e.g. `assembly/types.d.ts` with the following line:
-```
+```ts
 /// <reference types="near-runtime-ts/assembly/as_types" />
 ```
 
