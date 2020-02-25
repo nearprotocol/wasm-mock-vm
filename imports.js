@@ -5,7 +5,7 @@ let rust = require(".");
 let fs = require("fs");
 let path = require("path");
 
-function toNum(x) { return parseInt(x.toString());}
+function toNum(x) { return parseInt(x.toString()); }
 
 // http://www.onicos.com/staff/iz/amuse/javascript/expert/utf.txt
 
@@ -52,21 +52,28 @@ function UTF8toStr(array) {
 }
 
 function findContext() {
-  let _path = require.resolve("./context.json", { paths: [ 
-              path.join(process.cwd(), "assembly", "__tests__"), // First look in project test file
-              process.cwd(), // Then Project root
-              __dirname // lastly in this directory to find the default values
+  let paths = [
+                path.join(process.cwd(),
+                "assembly", "__tests__"),
+                process.cwd(), __dirname
               ]
-              });
-  if (_path) {
-    return require(_path);
-  }
-  return null;
+              .map(p => path.join(p, "context.json"));
+  let _paths = paths.filter(p => {
+      try {
+        require.resolve(p);
+      } catch {
+          return false;
+      }
+      return true
+  });
+  return _paths.length > 0 ? require(_paths[0]) : null;
+  
 }
 
 
 
 function createImports(memory) {
+
   let I8 = () => new Uint8Array(memory.buffer);
 
   function readUTF8Str(ptr) {
@@ -90,8 +97,7 @@ function createImports(memory) {
   //
   // If memory interval is outside the smart contract memory.
   global.read_memory =  function(offset, buffer) {
-      buffer.set(I8().slice(toNum(offset), toNum(offset) + buffer.length), 0)
-      
+      buffer.set(I8().slice(toNum(offset), toNum(offset) + buffer.length), 0);
   };
 
   // Reads a single byte from the memory.

@@ -2,7 +2,7 @@ import { context, storage, base58, base64, PersistentMap, PersistentVector, Pers
 import { TextMessage } from "./model";
 import { _testTextMessage, _testTextMessageTwo, _testBytes, _testBytesTwo } from "./util";
 import { Context, VM } from "..";
-import { u128 } from "bignum";
+import { u128 } from "near-runtime-ts";
 
 beforeAll(()=> {
   VM.saveState();
