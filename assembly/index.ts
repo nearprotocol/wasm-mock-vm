@@ -1,7 +1,4 @@
 import { u128 } from "near-runtime-ts";
-/// <reference types="./__tests__/as-pect" />
-
-import { u128 } from "bignum";
 
 /**
  * Methods on the current VM
