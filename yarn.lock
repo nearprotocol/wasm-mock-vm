@@ -2,46 +2,46 @@
 # yarn lockfile v1
 
 
-"@as-pect/assembly@^3.0.0-beta.0":
-  version "3.0.0-beta.0"
-  resolved "https://registry.yarnpkg.com/@as-pect/assembly/-/assembly-3.0.0-beta.0.tgz#21b88c00560db54e95a38cf24d4a6617d413cb49"
-  integrity sha512-La/VGBO3fD3cuNmwpg1FBbPJH8qn0FLqWoRBA9whXAfjT0FjzgFiPBhc/IahMkiHE8fDkBN77cULD+dd3bw3Kg==
+"@as-pect/assembly@^3.0.0-beta.2":
+  version "3.0.0-beta.2"
+  resolved "https://registry.yarnpkg.com/@as-pect/assembly/-/assembly-3.0.0-beta.2.tgz#06787e0c0aa9322c12adde64aa7aa25bf92f043f"
+  integrity sha512-vc8VSzSY9gt2vXiKPwsgZP+9ze718+6pqpw9N/aKS2s2If/PcPGoy+iOg/FnFNw+HhD+yptEV6e5lC9Kz8hzBw==
 
-"@as-pect/cli@^3.0.0-alpha.3":
-  version "3.0.0-beta.0"
-  resolved "https://registry.yarnpkg.com/@as-pect/cli/-/cli-3.0.0-beta.0.tgz#bc6dba6a4a82581cfa65a06dbf360ae2962de901"
-  integrity sha512-S2BXBfXKRwyJwb0HRyvv2zIBOybD4rqLllOCeEuGD4lhT3YL4gdGqyj08UEIXVJzZM852FnfPP7zU/bEgn5OOQ==
+"@as-pect/cli@^3.0.0-beta.2":
+  version "3.0.0-beta.2"
+  resolved "https://registry.yarnpkg.com/@as-pect/cli/-/cli-3.0.0-beta.2.tgz#5288fddc319b7ea519231be00c652f0c4ab767b0"
+  integrity sha512-umklLdqPMpO3jqa7XvGIKucnKibuKeJizI8Uug+5NJ400OBPS54QLDB4jQTuPNvXG6HHK93vc17U/vfQYIgc3Q==
   dependencies:
-    "@as-pect/assembly" "^3.0.0-beta.0"
-    "@as-pect/core" "^3.0.0-beta.0"
+    "@as-pect/assembly" "^3.0.0-beta.2"
+    "@as-pect/core" "^3.0.0-beta.2"
     chalk "^3.0.0"
     glob "^7.1.6"
   optionalDependencies:
-    "@as-pect/csv-reporter" "^3.0.0-beta.0"
-    "@as-pect/json-reporter" "^3.0.0-beta.0"
+    "@as-pect/csv-reporter" "^3.0.0-beta.2"
+    "@as-pect/json-reporter" "^3.0.0-beta.2"
 
-"@as-pect/core@^3.0.0-beta.0":
-  version "3.0.0-beta.0"
-  resolved "https://registry.yarnpkg.com/@as-pect/core/-/core-3.0.0-beta.0.tgz#19dd3fd20310f0c25df9db21998ae8e6758d667a"
-  integrity sha512-xRooRf/JPp/GgDc0QA7cVJpaTNAtPh6LtYkE9Zc4RE6QTTOCpaJgmBbFVv8N/ms74x6Ike2Bkp4hTTvD0FTnEA==
+"@as-pect/core@^3.0.0-beta.2":
+  version "3.0.0-beta.2"
+  resolved "https://registry.yarnpkg.com/@as-pect/core/-/core-3.0.0-beta.2.tgz#eda13229256308cfc9beb24e92ae3db8d282e329"
+  integrity sha512-GWNXUp1zszuzTvrt03BtYFM8ficeyFhH3/LIO6KvB/Z54easBs1QbAryMMH1vsGFiwaKqAn3nhK5qDgMhS6ouw==
   dependencies:
-    "@as-pect/assembly" "^3.0.0-beta.0"
+    "@as-pect/assembly" "^3.0.0-beta.2"
     chalk "^3.0.0"
     long "^4.0.0"
 
-"@as-pect/csv-reporter@^3.0.0-beta.0":
-  version "3.0.0-beta.0"
-  resolved "https://registry.yarnpkg.com/@as-pect/csv-reporter/-/csv-reporter-3.0.0-beta.0.tgz#f532c5167bc174693c4df1064626002b60aa66a3"
-  integrity sha512-F91wGncStAVJq7pe5MbUWFSTE3DKnRx/wbFFO/VJSEApE7WEX0g7zFRLvKIh+lcGInB+TIaf2DtlNE90p9vZqw==
+"@as-pect/csv-reporter@^3.0.0-beta.2":
+  version "3.0.0-beta.2"
+  resolved "https://registry.yarnpkg.com/@as-pect/csv-reporter/-/csv-reporter-3.0.0-beta.2.tgz#26e354371321f1dd3c71b614e837e5abaf9ed94b"
+  integrity sha512-MvRnWHVdDSjmU00RKApxIGKGP7oDNMVSr/FlIVVPuQc4WTqT2fJrjt5Gaasu7kkx/vXe6gedZ1qw2yOpMCqMQQ==
   dependencies:
-    "@as-pect/core" "^3.0.0-beta.0"
+    "@as-pect/core" "^3.0.0-beta.2"
 
-"@as-pect/json-reporter@^3.0.0-beta.0":
-  version "3.0.0-beta.0"
-  resolved "https://registry.yarnpkg.com/@as-pect/json-reporter/-/json-reporter-3.0.0-beta.0.tgz#b1d854da6892e156f3162bc2cae34a0dbdd1d534"
-  integrity sha512-gdapm6U0utv5kMXy005KGNOoTjIDkHfzE8/kyFXyhpvFg5ntKFF1lvMfQj8K+DsoUbk74QJa0GrZoAfbIxI1Rg==
+"@as-pect/json-reporter@^3.0.0-beta.2":
+  version "3.0.0-beta.2"
+  resolved "https://registry.yarnpkg.com/@as-pect/json-reporter/-/json-reporter-3.0.0-beta.2.tgz#55e4041394f8aefd0414217e7afb4b4a865c1f06"
+  integrity sha512-UG0oogbB1hmZuJTpiOjU50NdIIyhhvO3z7w5cDzX1JW4RIx4Q4ZpUUQDVh9A7XCo/Uzi8KePgCUfdE/c4hkPJg==
   dependencies:
-    "@as-pect/core" "^3.0.0-beta.0"
+    "@as-pect/core" "^3.0.0-beta.2"
 
 "@types/color-name@^1.1.1":
   version "1.1.1"
@@ -185,9 +185,10 @@ near-bindgen-as@^1.3.0-0:
   dependencies:
     semver "^7.1.3"
 
-near-runtime-ts@nearprotocol/near-runtime-ts#add_wam_mock_vm:
-  version "0.6.2"
-  resolved "https://codeload.github.com/nearprotocol/near-runtime-ts/tar.gz/877aa8bdd8e67745131a45f87ae3ef1fcb58ca3c"
+near-runtime-ts@^0.7.0-0:
+  version "0.7.0-0"
+  resolved "https://registry.yarnpkg.com/near-runtime-ts/-/near-runtime-ts-0.7.0-0.tgz#78c5b9f9be77ac0d65bacabe09da807273acea10"
+  integrity sha512-Ed+Wvf58GQ56wecAn/6XX7uRorhY547vVKabMzX4SCve6V6QPdzYfAa0UJ6gvRvqn+3DZKabHncciTWY0Ue5vA==
   dependencies:
     as-bignum "^0.1.5"
     assemblyscript-json "^0.3.0"

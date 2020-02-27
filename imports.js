@@ -1,6 +1,5 @@
 const v8 = require('v8');
 v8.setFlagsFromString('--experimental-wasm-bigint');
-
 let rust = require(".");
 let fs = require("fs");
 let path = require("path");
@@ -72,8 +71,8 @@ function findContext() {
 
 
 
-function createImports(memory) {
-
+function createImports(memory, createImports, instantiateSync, binary) {
+  let wasm;
   let I8 = () => new Uint8Array(memory.buffer);
 
   function readUTF8Str(ptr) {
@@ -163,13 +162,32 @@ function createImports(memory) {
 
   context =  createContext();
   vm = new rust.VM(context);
-  return {
+  let _imports =  {
     vm: {
         saveState() {
           vm.save_state();
         },
         restoreState() {
           vm.restore_state();
+        },
+        outcome() {
+          let outcome = vm.outcome();
+          let strArrPtr = wasm.newStringArray();
+          for (let str of outcome.logs) {
+            strArrPtr = wasm.pushString(strArrPtr, wasm.__allocString(str));
+          }
+          let return_data_ptr;
+          if (outcome.return_data === "None") {
+            return_data_ptr = wasm.NONE;
+          }
+          let outcomePtr = new wasm.Outcome(BigInt(outcome.balance1),
+                                            BigInt(outcome.balance2),
+                                            BigInt(outcome.burnt_gas),
+                                            BigInt(outcome.used_gas),
+                                            strArrPtr,
+                                            BigInt(outcome.storage_usage),
+                                            return_data_ptr)
+          return outcomePtr.valueOf();
         },
         saveContext() {
           vm.save_context();
@@ -401,7 +419,15 @@ function createImports(memory) {
         }
     }
   };
+  // Save reference to the instance
+  wasm = instantiateSync(binary, createImports(_imports));
+  return wasm;
 }
+
+//add an extra entry file
+flags = {};
+flags[path.join(__dirname, "assembly", "entry.ts")] = [];
+
 module.exports = {
      /**
    * A set of globs passed to the glob package that qualify typescript files for testing.
@@ -415,6 +441,7 @@ module.exports = {
    * All the compiler flags needed for this test suite. Make sure that a binary file is output.
    */
   flags: {
+    ...flags,
     "--validate": [],
     "--debug": [],
     /** This is required. Do not change this. The filename is ignored, but required by the compiler. */

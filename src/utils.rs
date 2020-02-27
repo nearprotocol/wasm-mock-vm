@@ -8,3 +8,7 @@ pub fn set_panic_hook() {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 }
+
+pub fn u128_from_u64s(lo: u64, hi: u64) -> u128 {
+    u128::from(hi).rotate_left(64) + u128::from(lo)
+}

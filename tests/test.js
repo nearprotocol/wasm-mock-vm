@@ -169,6 +169,11 @@ console.log(iterid);
 while (vm.storage_iter_next(iterid, BigInt(2), BigInt(3)) > 0) {
     console.log(utils.UTF8toStr(readReg(2)),utils.UTF8toStr(readReg(3)));
 }
+str = utils.StrtoUTF8("hello dolly!");
+memory.set(str, 4000);
+vm.log_utf8(BigInt(str.length), BigInt(4000));
+
+console.log(vm.outcome());
 // vm.read_register(BigInt(0), BigInt(0));
 // assert(memory[0] == 84);
 
