@@ -1,24 +1,35 @@
 import { u128 } from "near-runtime-ts";
+import { Outcome } from "./outcome";
 
 /**
  * Methods on the current VM
- */
-export namespace VM {
-  //@ts-ignore
-  @external("vm", "saveState")
+ */ 
+export declare namespace VM {
   /** 
    * Saves the internal state of the VM. 
-   * */
-  export declare function saveState(): void;
-
+   * */ 
   //@ts-ignore
-  @external("vm", "restoreState")
+  @external("vm", "saveState")
+  export function saveState(): void;
+
   /** 
    * Restores the internal state of the VM. 
    * 
-   */
-  export declare function restoreState(): void;
-}
+   */ 
+  //@ts-ignore
+  @external("vm", "restoreState")
+  export function restoreState(): void;
+
+  /**
+   * Return the VM Outcome of the current running contract
+   */ 
+  //@ts-ignore
+  @external("vm", "outcome")
+  export function outcome(): Outcome;
+
+  
+}  
+
 
 //@ts-ignore
 @external("vm", "setCurrent_account_id")
@@ -55,18 +66,47 @@ declare function _setAccount_balance(lo: u64, hi: u64): void;
 @external("vm", "setAccount_locked_balance")
 declare function _setAccount_locked_balance(lo: u64, hi: u64): void;
 
+
+//@ts-ignore
+@external("vm", "saveContext")
+declare function _saveContext(): void;
+
+//@ts-ignore
+@external("vm", "restoreContext")
+declare function _restoreContext(): void;
+
+//@ts-ignore
+@external("vm", "setBlock_index")
+declare function _setBlock_index(block_height: u64): void;
+//@ts-ignore
+@external("vm", "setBlock_timestamp")
+declare function _setBlock_timestamp(stmp: u64): void;
+
+//@ts-ignore
+@external("vm", "setPrepaid_gas")
+declare function _setPrepaid_gas(_u64: u64): void;
+
+//@ts-ignore
+@external("vm", "setIs_view")
+declare function _setIs_view(b: bool): void;
+//@ts-ignore
+@external("vm", "setOutput_data_receivers")
+declare function _setOutput_data_receivers(arrA: Array<string>): void;
+//@ts-ignore
+@external("vm", "setStorage_usage")
+declare function _setStorage_usage(amt: u64): void;
 /**
  * Functions to edit the current VM's context
  */
 export namespace Context {
 
-  //@ts-ignore
-  @external("vm", "saveContext")
-  export declare function saveContext(): void;
+  export function saveContext(): void {
+    _saveContext();
+  }
 
-  //@ts-ignore
-  @external("vm", "restoreContext")
-  export declare function restoreContext(): void;
+  export function restoreContext(): void {
+    _restoreContext();
+  }
 
   export function setCurrent_account_id(id: string): void {
     _setCurrent_account_id(changetype<usize>(String.UTF8.encode(id)));
@@ -87,12 +127,14 @@ export namespace Context {
   export function setPredecessor_account_id(s: string): void {
     _setPredecessor_account_id(changetype<usize>(String.UTF8.encode(s)));
   }
-  //@ts-ignore
-  @external("vm", "setBlock_index")
-  export declare function setBlock_index(block_height: u64): void;
-  //@ts-ignore
-  @external("vm", "setBlock_timestamp")
-  export declare function setBlock_timestamp(stmp: u64): void;
+
+  export function setBlock_index(block_height: u64): void {
+    _setBlock_index(block_height);
+  }
+  
+  export function setBlock_timestamp(stmp: u64): void {
+    _setBlock_timestamp(stmp);
+  }
 
   export function setAccount_balance(_u128: u128): void {
     _setAccount_balance(_u128.lo, _u128.hi);
@@ -101,25 +143,28 @@ export namespace Context {
   export function setAccount_locked_balance(_u128: u128): void {
     _setAccount_locked_balance(_u128.lo, _u128.hi);
   }
-  //@ts-ignore
-  @external("vm", "setStorage_usage")
-  export declare function setStorage_usage(amt: u64): void;
+
+  export function setStorage_usage(amt: u64): void {
+    _setStorage_usage(amt);
+  }
 
   export function setAttached_deposit(_u128: u128): void {
     _setAttached_deposit(_u128.lo, _u128.hi);
   }
 
-  //@ts-ignore
-  @external("vm", "setPrepaid_gas")
-  export declare function setPrepaid_gas(_u64: u64): void;
+  export function setPrepaid_gas(_u64: u64): void {
+    _setPrepaid_gas(_u64);
+  }
 
   export function setRandom_seed(s: string): void {
     _setRandom_seed(changetype<usize>(String.UTF8.encode(s)));
   }
-  //@ts-ignore
-  @external("vm", "setIs_view")
-  export declare function setIs_view(b: bool): void;
-  //@ts-ignore
-  @external("vm", "setOutput_data_receivers")
-  export declare function setOutput_data_receivers(arrA: Array<string>): void;
+
+  export function setIs_view(b: bool): void {
+    _setIs_view(b);
+  }
+  
+  export function setOutput_data_receivers(arrA: Array<string>): void {
+    _setOutput_data_receivers(arrA);
+  }
 }

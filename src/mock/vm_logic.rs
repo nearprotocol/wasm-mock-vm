@@ -1,3 +1,4 @@
+use serde::{Serialize};
 use near_vm_logic::mocks::mock_external::MockedExternal;
 use crate::mock::memory::*;
 use near_vm_logic::types::*;
@@ -67,6 +68,7 @@ pub struct VM {
     saved_ext: Option<MockedExternal>
 }
 
+#[allow(dead_code)]
 fn print_str(s: &str) {
     console::log_1(&s.into())
 }
@@ -79,7 +81,7 @@ impl VM {
         set_panic_hook();
         let c: VMContext = serde_wasm_bindgen::from_value(context).unwrap();
         Self {
-            builder: VMLogicBuilder::free(),
+            builder: VMLogicBuilder::default(),
             context: c,
             internal_state: None,
             saved_state: None,
@@ -94,6 +96,7 @@ impl VM {
             vm.restore_state(self.internal_state.as_ref().unwrap());
         }
         let res: VMResult<T> = f(&mut vm);
+        // console::log_1(&vm.storage_usage().unwrap().to_string().into());
         if res.is_ok() {
             self.internal_state = Some(vm.save_state());
         }
@@ -157,13 +160,12 @@ impl VM {
     }
 
     pub fn set_account_balance(&mut self, lo: u64, hi: u64) {
-        let _u128 = u128::from(hi).rotate_left(64) + u128::from(lo);
-        self.context.account_balance = _u128 // TODO: serde_wasm_bindgen::from_value(_u128).unwrap()
+        self.context.account_balance = u128_from_u64s(lo, hi) + self.context.attached_deposit // TODO: serde_wasm_bindgen::from_value(_u128).unwrap()
+        
     }
 
     pub fn set_account_locked_balance(&mut self, lo: u64, hi: u64) {
-        let _u128 = u128::from(hi).rotate_left(64) + u128::from(lo);
-        self.context.account_locked_balance = _u128 // TODO: serde_wasm_bindgen::from_value(_u128).unwrap()
+        self.context.account_locked_balance = u128_from_u64s(lo, hi) // TODO: serde_wasm_bindgen::from_value(_u128).unwrap()
     }
 
     pub fn set_storage_usage(&mut self, amt: JsValue) {
@@ -171,8 +173,7 @@ impl VM {
     }
 
     pub fn set_attached_deposit(&mut self, lo: u64, hi: u64) {
-        let _u128 = u128::from(hi).rotate_left(64) + u128::from(lo);
-        self.context.attached_deposit = _u128.into(); // TODO: serde_wasm_bindgen::from_value(_u128).unwrap()
+        self.context.attached_deposit = u128_from_u64s(lo, hi) // TODO: serde_wasm_bindgen::from_value(_u128).unwrap()
     }
 
     pub fn set_prepaid_gas(&mut self, _u64: u64) {
@@ -1106,7 +1107,12 @@ impl VM {
         value_ptr: u64,
         register_id: u64,
     ) -> u64 {
-        self.run_vm(|vm| vm.storage_write(key_len, key_ptr, value_len, value_ptr, register_id)).unwrap()
+        self.run_vm(|vm| {
+            // console::log_1(&vm.current_storage_usage.to_string().into());
+            let res = vm.storage_write(key_len, key_ptr, value_len, value_ptr, register_id); 
+            // console::log_1(&vm.current_storage_usage.to_string().into());
+            res
+        }).unwrap()
     }
 
    /// Reads the value stored under the given key.
@@ -1239,8 +1245,33 @@ impl VM {
         self.run_vm(|vm| vm.storage_iter_next(iterator_id, key_register_id, value_register_id)).unwrap()
     }
 
-   // Computes the outcome of execution.
-    // pub fn outcome(self) -> VMOutcome {
-    //     self.run_vm(|vm| vm.outcome()).unwrap()
-    // }
+   ///Computes the outcome of execution.
+    pub fn outcome(&mut self) -> JsValue {
+        let mut vm = self.builder.build(self.context.clone());
+        if self.internal_state.is_some() {
+            vm.restore_state(self.internal_state.as_ref().unwrap());
+        }
+        let res = vm.outcome();
+        let outcome = _VMOutcome {
+            balance1: (res.balance >> 64) as u64,
+            balance2: ((res.balance << 64) >> 64) as u64,
+            storage_usage: res.storage_usage,
+            return_data: res.return_data,
+            burnt_gas: res.burnt_gas,
+            used_gas: res.used_gas,
+            logs: res.logs
+        };
+        serde_wasm_bindgen::to_value(&outcome).unwrap()
+    }
+}
+
+#[derive(Serialize)]
+pub struct _VMOutcome {
+    pub balance1: u64,
+    pub balance2: u64,
+    pub storage_usage: StorageUsage,
+    pub return_data: ReturnData,
+    pub burnt_gas: Gas,
+    pub used_gas: Gas,
+    pub logs: Vec<String>,
 }

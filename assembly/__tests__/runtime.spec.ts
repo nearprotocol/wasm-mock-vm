@@ -1,16 +1,14 @@
-import { context, storage, base58, base64, PersistentMap, PersistentVector, PersistentDeque, PersistentTopN, ContractPromise, math } from "near-runtime-ts";
+import { context, storage, base58, base64, PersistentMap, PersistentVector, PersistentDeque, PersistentTopN, ContractPromise, math, logging, runtime_api } from "near-runtime-ts";
 import { TextMessage } from "./model";
 import { _testTextMessage, _testTextMessageTwo, _testBytes, _testBytesTwo } from "./util";
 import { Context, VM } from "..";
 import { u128 } from "near-runtime-ts";
+import { Outcome } from "../entry";
 
 beforeAll(()=> {
   VM.saveState();
 })
 
-afterAll(() => {
-  VM.restoreState();
-})
 
 // export function hello(): string {
 //   const s = simple("a"); // Test that we can call other export functions
@@ -29,12 +27,53 @@ describe("Encodings", () => {
     const encoded = base64.encode(array);
     expect(encoded).toBe("AAFaZA==", "Incorrect keys contents");
     const decoded = base64.decode("AAFaZA==");
-    expect(_arrayEqual(decoded, array)).toBe(true, "Incorrect decoded value after base64 roundtrip");
+    expect(decoded).toStrictEqual(decoded, "Incorrect decoded value after base64 roundtrip");
   });
 });
 
-// export function logTest(): void {
-// }
+let outcome: Outcome;
+describe("outcome", () => {
+  beforeAll(()=> {
+    VM.saveState();
+  });
+  afterAll(() => {
+    VM.restoreState();
+  });
+
+  it("should return acturate logs", () => {
+    logging.log("hello world");
+    let outcome = VM.outcome();
+    expect(outcome.logs).toIncludeEqual("hello world", "log should include \"hello world\"");
+  });
+
+  it("should increase the storage usage more when first added", () => {
+    const key = "hello";
+    const key_cost = String.UTF8.byteLength(key);
+    const value = "world";
+    const value_cost = String.UTF8.byteLength(value);
+    const initial_base_cost = 40; 
+
+    if (storage.contains("hello")) {
+      storage.delete("hello");
+    }
+    let orig = VM.outcome();
+    expect(orig.storage_usage).toBe(runtime_api.storage_usage(), "it should be the same when no storage has been added.");
+    storage.set("hello", "world");
+    expect(storage.get<string>("hello")).toBe("world", "key hello should be set to \"world\"");
+    let newOutcome = VM.outcome();
+    expect(newOutcome.storage_usage).toBeGreaterThan(orig.storage_usage, "the new storage usage should be greater than the original.");
+    expect(runtime_api.storage_usage()).toBe(initial_base_cost + key_cost + value_cost + orig.storage_usage, "first write cost 40 + length of key + length of value");
+  });
+
+  it("should decrease storage usage with smaller value", () => {
+    const oldVaule  = "world";
+    const newValue = "wor";
+    const lenDiff = String.UTF8.byteLength(oldVaule) - String.UTF8.byteLength(newValue);
+    const usageBefore = runtime_api.storage_usage();
+    storage.set("hello", newValue);
+    expect(runtime_api.storage_usage()).toBe(usageBefore - lenDiff, "storage usage should be less with smaller value.");
+  });
+});
 
 describe("Storage", (): void => {
   beforeEach(() => {
@@ -51,9 +90,8 @@ describe("Storage", (): void => {
     expect(storage.getString("someKey")).toBe("myValue1");
     // expect(getValueResult).toBe("myValue1", "Incorrect value from storage");
     const otherValueResult = storage.getString("someOtherKey");
-    expect(otherValueResult).toBe("otherValue");
-    // expect(otherValueResult).toBe("otherValue", "Incorrect value2 from storage");
-    // expect(storage.getString("nonexistentKey")).toBe(null, "Unexpectd value on getting string with a nonexistent key");
+    expect(otherValueResult).toBe("otherValue", "Incorrect value from someOtherKey from storage");
+    expect(storage.getString("nonexistentKey")).toBeNull("Unexpectd value on getting string with a nonexistent key");
   });
 
   it("Bytes Roundtrip", () => {
@@ -62,25 +100,25 @@ describe("Storage", (): void => {
     storage.setBytes("someKey", bytes);
     storage.setBytes("someOtherKey", bytes2);
     const getValueResult = storage.getBytes("someKey");
-    expect(_arrayEqual(getValueResult, bytes)).toBe(true, "Incorrect bytes value from storage");
+    expect(getValueResult).toBe(getValueResult, "Incorrect bytes value from storage");
     const otherValueResult = storage.getBytes("someOtherKey");
-    expect(_arrayEqual(otherValueResult, bytes2)).toBe(true, "Incorrect bytes value from storage");
-    expect(storage.getBytes("nonexistentKey")).toBe(null, "Unexpectd value on getting bytes with a nonexistent key");
+    expect(otherValueResult).toBe(otherValueResult, "Incorrect bytes value from storage");
+    expect(storage.getBytes("nonexistentKey")).toBeNull("Unexpectd value on getting bytes with a nonexistent key");
   });
   
   it("Generic Get/Set Roundtrip", () => {
     const message = _testTextMessage();
-    storage.set<TextMessage>("message1", message);
+    storage.set("message1", message);
   
     const messageFromStorage = storage.get<TextMessage>("message1")!;
     expect(messageFromStorage.sender).toBe("mysteriousStranger", "Incorrect data value (sender) for retrieved object");
     expect(messageFromStorage.text).toBe("Hello world", "Incorrect data value (text) for retrieved object");
     expect(messageFromStorage.number).toBe(415, "Incorrect data value (number) for retrieved object");
-    expect(storage.get<TextMessage>("nonexistent", null)).toBe(null, "Incorrect data value for get<T> nonexistent key");
+    expect(storage.get<TextMessage>("nonexistent", null)).toBeNull("Incorrect data value for get<T> nonexistent key");
   
     storage.set<TextMessage>("message2", new TextMessage());
     // TODO: fix this
-    //expect(_modelObjectEqual(storage.get<TextMessage>("message2"), new TextMessage())).toBe(true, "Incorrect empty message on storage roundtrip");
+    expect(storage.get<TextMessage>("message2")).toStrictEqual(new TextMessage(), "Incorrect empty message on storage roundtrip");
   
     storage.set<u64>("u64key", 20);
     expect(storage.getPrimitive<u64>("u64key", 0)).toBe(20, "Incorrect data value for u64 roundtrip");
@@ -101,7 +139,7 @@ describe("Storage", (): void => {
     storage.set<String>("stringkey", "StringValue");
     const stringGet = storage.get<String>("stringkey");
     expect(stringGet).toBe("StringValue", "Incorrect data value for string roundtrip");
-    expect(storage.get<string>("nonexistent", null)).toBe(null, "Incorrect data value for get<T> string nonexistent key");
+    expect(storage.get<string>("nonexistent", null)).toBeNull("Incorrect data value for get<T> string nonexistent key");
   });
   
   it("Keys", () => {
@@ -161,7 +199,7 @@ describe("Map should handle", () => {
     const valuesEmpty = map.values("", "zzz");
     expect(valuesEmpty.length).toBe(0, "Unexpected values in empty map");
     expect(!map.contains("nonexistentkey")).toBe(true, "Map contains a non existent key");
-    expect(map.get("nonexistentkey")).toBe(null, "Incorrect result on get with nonexistent key");
+    expect(map.get("nonexistentkey")).toBeNull("Incorrect result on get with nonexistent key");
   });
 
   it("some entries", () => {
@@ -173,25 +211,25 @@ describe("Map should handle", () => {
     expect(map.contains("mapKey1")).toBe(true);
     const values = map.values("mapKey1", "zzz");
     expect(values.length).toBe(2, "Unexpected values size in map with 2 entries");
-    expect(_modelObjectEqual(values[0], message)).toBe(true, "Unexpected values contents in map with 2 entries");
-    expect(_modelObjectEqual(values[1], _testTextMessageTwo())).toBe(true, "Unexpected values contents in map with 2 entries");
+    expect(values[0]).toStrictEqual(message, "Unexpected values contents in map with 2 entries");
+    expect(values[1]).toStrictEqual(_testTextMessageTwo(), "Unexpected values contents in map with 2 entries");
     expect(map.values("mapKey3", "zzz").length).toBe(1, "Unexpected values size in map with 2 entries");
     expect(map.values("mapKey1", "mapKey2").length).toBe(1, "Unexpected values size in map with 2 entries");
     expect(map.values("mapKey1", "mapKey4", -1, false).length).toBe(1, "Unexpected values size in map with 2 entries");
     expect(!map.contains("nonexistentkey")).toBe(true, "Map contains a non existent key");
     expect(map.contains("mapKey1")).toBe(true, "Map does not contain a key that was added (mapKey1)");
     expect(map.contains("mapKey3")).toBe(true, "Map does not contain a key that was added (mapKey3)");
-    expect(_modelObjectEqual(map.get("mapKey1"), message)).toBe(true, "Incorrect result from map get");
-    expect(_modelObjectEqual(map.get("mapKey3"), _testTextMessageTwo())).toBe(true, "Incorrect result from map get");
+    expect(map.get("mapKey1")).toStrictEqual(message, "Incorrect result from map get");
+    expect(map.get("mapKey3")).toStrictEqual(_testTextMessageTwo(), "Incorrect result from map get");
     // delete an entry and retry api calls
     map.delete("mapKey3");
     expect(map.values("", "zzz").length).toBe(1, "Unexpected values size in map after delete");
-    expect(_modelObjectEqual(map.values("", "zzz")[0], message)).toBe(true, "Unexpected values contents in map after delete");
+    expect(map.values("", "zzz")[0]).toStrictEqual(message, "Unexpected values contents in map after delete");
     expect(map.values("mapKey1", "zzz").length).toBe(1, "Unexpected values size in map after delete");
     expect(!map.contains("mapKey3")).toBe(true, "Map contains a key that was deleted");
     expect(map.contains("mapKey1")).toBe(true, "Map does not contain a key that should be there after deletion of another key");
-    expect(_modelObjectEqual(map.get("mapKey1"), message)).toBe(true, "Incorrect result from map get after delete");
-    expect(map.get("mapKey3")).toBe(null, "Incorrect result from map get on a deleted key");
+    expect(map.get("mapKey1")).toStrictEqual(message, "Incorrect result from map get after delete");
+    expect(map.get("mapKey3")).toBeNull("Incorrect result from map get on a deleted key");
   });
 
   it("should handle primitives", () => {
@@ -212,16 +250,19 @@ describe("Map should handle", () => {
   });
 });
 
-describe("Vectors", () => {
+const vector = new PersistentVector<string>("vector1");
+
+describe("Vectors should handle", () => {
   //TODO: Improve tests
-  it("should work", () => {
-    const vector = new PersistentVector<string>("vector1");
+  it("no items", () => {
     expect(vector != null).toBe(true, "Vector not initialized");
     expect(vector.length).toBe(0, "Empty vector has incorrect length");
     expect(!vector.containsIndex(0)).toBe(true, "Empty vector incorrectly has index 0");
     expect(vector.isEmpty).toBe(true, "isEmpty incorrect on empty vector");
-    //try { expect(vector[0]).toBe(null, "");} catch (e) {} not possible to test due to lack of try catch
-
+    //try { expect(vector[0]).toBeNull("");} catch (e) {} not possible to test due to lack of try catch
+  });
+  
+  it("single items", () => {
     vector.push("bb");
     expect(vector.length).toBe(1, "Vector has incorrect length");
     expect(vector.containsIndex(0)).toBe(true, "Non empty vector does not have index 0");
@@ -233,7 +274,9 @@ describe("Vectors", () => {
     expect(vector.first).toBe("bb", "Incorrect first entry");
     expect(vector[0]).toBe("bb", "incorrect vector contents");
     expect(_vectorHasContents(vector, ["bb"])).toBe(true, "Unexpected vector contents. Expected [bb]");
-
+  });
+  
+  it("two items", () => {
     vector.pushBack("bc");
     expect(vector.length).toBe(2, "Vector has incorrect length");
     expect(vector.containsIndex(0)).toBe(true, "Non empty vector does not have index 0");
@@ -247,6 +290,9 @@ describe("Vectors", () => {
     vector[0] = "aa";
     expect(_vectorHasContents(vector, ["aa", "bd"])).toBe(true, "Unexpected vector contents. Expected [aa, bd]");
     expect(vector.length).toBe(2, "Vector has incorrect length")
+  });
+  
+  it("three items", () => {
     vector.pushBack("be");
     expect(_vectorHasContents(vector, ["aa", "bd", "be"])).toBe(true, "Unexpected vector contents. Expected [aa, bd, be]");
     expect(vector.length).toBe(3, "Vector has incorrect length")
@@ -254,14 +300,19 @@ describe("Vectors", () => {
     expect(vector.last).toBe("be", "Incorrect last entry")
     expect(vector.front).toBe("aa", "Incorrect front entry")
     expect(vector.first).toBe("aa", "Incorrect first entry")
-
+  });
+  
+  it("popping from the front", () => {
     //pop an entry and then try various other methods
     vector.pop();
     expect(_vectorHasContents(vector, ["aa", "bd"])).toBe(true, "Unexpected vector contents. Expected [aa, bd]");
     expect(vector.length).toBe(2, "Vector has incorrect length after delete")
     vector[0] = "ba";
     expect(_vectorHasContents(vector, ["ba", "bd"])).toBe(true, "Unexpected vector contents. Expected [ba, bd]");
-    expect(vector.length).toBe(2, "Vector has incorrect length")
+    expect(vector.length).toBe(2, "Vector has incorrect length");
+  });
+  
+  it("popping from b items", () => {
     vector.pushBack("bf");
     expect(_vectorHasContents(vector, ["ba", "bd", "bf"])).toBe(true, "Unexpected vector contents. Expected [ba, bd, bf]");
     expect(vector.length).toBe(3, "Vector has incorrect length")
@@ -281,14 +332,16 @@ describe("Vectors", () => {
   });
 });
 
-describe("Deque", () => {
-  it("should work", () => {
-    const deque = new PersistentDeque<string>("dequeid");
+const deque = new PersistentDeque<string>("dequeid");
 
+describe("Deque should handle", () => {
+  it("no items", () => {
     expect(deque.length).toBe(0, "empty deque length is wrong");
     expect(!deque.containsIndex(0)).toBe(true, "empty deque contains index 0");
     expect(deque.isEmpty).toBe(true, "empty deque returns false for isEmpty");
-
+  });
+  
+  it("single items", () => {
     deque.pushBack("1");
     expect(deque.length).toBe(1, "deque length is wrong");
     expect(deque.containsIndex(0)).toBe(true, "deque does not contain index 0");
@@ -299,7 +352,9 @@ describe("Deque", () => {
     expect(deque.front).toBe("1", "wrong front element");
     expect(deque.first).toBe("1", "wrong first element");
     expect(deque.last).toBe("1", "wrong last element");
-
+  });
+  
+  it("multiple items", () => {
     deque.pushFront("-2");
     expect(deque.length).toBe(2, "deque length is wrong");
     expect(deque.containsIndex(0)).toBe(true, "deque does not contain index 0");
@@ -311,7 +366,9 @@ describe("Deque", () => {
     expect(deque.front).toBe("-2", "wrong front element");
     expect(deque.first).toBe("-2", "wrong first element");
     expect(deque.last).toBe("1", "wrong last element");
-
+  });
+  
+  it("popping front", () => {
     deque.popFront();
     expect(deque.length).toBe(1, "deque length is wrong");
     expect(deque.containsIndex(0)).toBe(true, "deque does not contain index 0");
@@ -322,7 +379,9 @@ describe("Deque", () => {
     expect(deque.front).toBe("1", "wrong front element");
     expect(deque.first).toBe("1", "wrong first element");
     expect(deque.last).toBe("1", "wrong last element");
-
+  });
+  
+  it("popping back", () => {
     deque.pushFront("-2");
     deque.popBack();
     expect(deque.length).toBe(1, "deque length is wrong");
@@ -337,10 +396,14 @@ describe("Deque", () => {
   });
 });
 
-describe("TopN", () => {
-  it("should work", () => {
-    // empty topn cases
-    const topn = new PersistentTopN<string>("topnid");
+let topn: PersistentTopN<string>;
+describe("TopN should", () => {
+
+  beforeAll(() => {
+    topn = new PersistentTopN<string>("topnid");
+  });
+    it("handle empty collection", () => {
+      // empty topn cases
     expect(topn != null).toBe(true, "topn is null");
     expect(topn.isEmpty).toBe(true, "empty topn - wrong result for isEmpty");
     expect(topn.length).toBe(0, "empty topn - wrong length");
@@ -351,7 +414,9 @@ describe("TopN", () => {
     // expect(topn.getTopFromKey(10, "somekey").length).toBe(0, "getTopFromKey for empty topn returned non empty list") // fails due to key doesn't exist
     expect(topn.getTopWithRating(10).length).toBe(0, "getTopWithRating for empty topn is not empty");
     // expect(topn.getTopWithRatingFromKey(10, "somekey").length).toBe(0, "getTopWithRatingFromKey for empty topn is not empty"); // fails due to key doesn't exist
-
+  });
+  
+  it("handle single items", () => {
     topn.setRating("k1", 5);
     expect(!topn.isEmpty).toBe(true, "topn - wrong result for isEmpty");
     expect(topn.length).toBe(1, "topn - wrong length");
@@ -365,8 +430,10 @@ describe("TopN", () => {
     expect(topn.getTopFromKey(10, "k1").length).toBe(0, "getTopFromKey for topn wrong result");
     expect(topn.getTopWithRating(10).length).toBe(1, "getTopWithRating for topn with 1 element is wrong size");
     expect(topn.getTopWithRatingFromKey(10, "k1").length).toBe(0, "getTopWithRatingFromKey for topn is not empty");
+  });
 
-    // Tests with 2 entries --  k1: 6, k: 5
+  
+  it("handle two entries", () => {
     topn.setRating("k", 5);
     topn.incrementRating("k1");
     expect(!topn.isEmpty).toBe(true, "topn - wrong result for isEmpty");
@@ -390,7 +457,9 @@ describe("TopN", () => {
     expect(topn.getTopWithRating(10).length).toBe(2, "getTopWithRating for topn with 1 element is wrong size");
     expect(topn.getTopWithRating(10)[0].value).toBe(6, "getTopWithRating for topn with 1 element is wrong size");
     expect(topn.getTopWithRating(10)[1].value).toBe(5, "getTopWithRating for topn with 1 element is wrong size");
+  });
 
+  it("handle deleting items", () => {
     topn.delete("k1");
     topn.incrementRating("k");
     expect(!topn.isEmpty).toBe(true, "topn - wrong result for isEmpty");
@@ -419,21 +488,17 @@ describe("context", () => {
   });
 
   it("should read unchanged context", () => {
-    expect(context.sender).toBe("bob", "Wrong sender");    
+    expect(context.sender).toBe("bob", "Wrong sender");
     expect(context.attachedDeposit).toBe(u128.fromU64(2), "Wrong receivedAmount");
     expect(context.accountBalance).toBe(u128.fromU32(4), "Account Balance should inclode attached deposit");
   });
   
-  // describe("Account Balance", () => {
-  //   beforeAll(() => {
-    //   });
-    
-    //   it("should be updated when attached attached deposit is updated", () => {
-      //     let balance = context.accountBalance.toString();
-      //     let expectedBalance = u128.fromU64(9).toU64().toString();
-      //     expect(balance).toBe(expectedBalance, "Updating the attached deposit should update the account balance");
-      //   });
-      // });
+  describe("Account Balance", () => {
+      it("should be updated when attached attached deposit is updated", () => {
+          Context.setAttached_deposit(u128.from(4));
+          expect(context.accountBalance).toStrictEqual(u128.from(6), "Updating the attached deposit should update the account balance");
+        });
+    });
       
       
   it("should be editable", () => {
@@ -464,22 +529,30 @@ describe("promises", () => {
   });
 });
 
-describe("Math", () => {
-  it("should work", () => {
+const stringValue = "toHash";
+
+describe("Math should handle", () => {
+  it("hash 32 from bytes", () => {
     const array = _testBytes();
     const hash = math.hash32Bytes(array);
     expect(hash).toBe(3593695342, "wrong hash");
+  });
 
-    const stringValue = "toHash";
+  it("hash 32 from string ", () => {
     const hashOfString = math.hash32(stringValue);
     expect(hashOfString).toBe(3394043202, "wrong hash of the string");
+  });
 
+  it("hash Uint8Aray from string", () => {
     const hash256 = math.hash(stringValue);
     let x: i32[] = [1, 6, 7];
     expect(hash256.length).toBe(32, "wrong output length for hash256");
     expect(hash256[0]).toBe(202, "wrong contents of hash256");
     expect(hash256[1]).toBe(76, "wrong contents of hash256");
     expect(hash256[31]).toBe(184, "wrong contents of hash256");
+  });
+
+  it("handle random", () => {
 
     const randBuf = math.randomBuffer(14);
     const randBuf2 = math.randomBuffer(14);
