@@ -14,15 +14,8 @@ export class ReceiptIndex extends  ReturnData {
 export class None extends ReturnData {}
 
 export const NONE = new None();
-
-//@ts-ignore
-@global
 export const ValueID = idof<Value>();
-//@ts-ignore
-@global
 export const ReceiptIndexID = idof<ReceiptIndex>();
-//@ts-ignore
-@global
 export const NoneID = idof<None>();
 
 export class Outcome {
