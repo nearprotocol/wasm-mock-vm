@@ -185,15 +185,6 @@ near-bindgen-as@^1.3.0-0:
   dependencies:
     semver "^7.1.3"
 
-near-devtools@nearprotocol/near-devtools:
-  version "0.1.0"
-  resolved "https://codeload.github.com/nearprotocol/near-devtools/tar.gz/782a9a7a3f058908c0be921e9de86cdeb223c821"
-  dependencies:
-    "@as-pect/cli" "^3.0.0-beta.0"
-    near-bindgen-as "^1.3.0-0"
-    near-runtime-ts "^0.7.0-0"
-    wasm-mock-vm nearprotocol/wasm-mock-vm
-
 near-runtime-ts@^0.7.0-0:
   version "0.7.0-0"
   resolved "https://registry.yarnpkg.com/near-runtime-ts/-/near-runtime-ts-0.7.0-0.tgz#78c5b9f9be77ac0d65bacabe09da807273acea10"
@@ -201,6 +192,16 @@ near-runtime-ts@^0.7.0-0:
   dependencies:
     as-bignum "^0.1.5"
     assemblyscript-json "^0.3.0"
+
+near-sdk-as@^0.0.2:
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/near-sdk-as/-/near-sdk-as-0.0.2.tgz#d24d242e63ff33155e67b3ca92df352cc98eba28"
+  integrity sha512-63OIc0aylptQrPgH7DghVIeGx5v144QJOE/zto9JCLuhYVFWQ6dghvPn5mdsWgiRnpkBw+zQ/ptJ+35bqtfyfA==
+  dependencies:
+    "@as-pect/cli" "^3.0.0-beta.0"
+    near-bindgen-as "^1.3.0-0"
+    near-runtime-ts "^0.7.0-0"
+    wasm-mock-vm "^1.2.1"
 
 once@^1.3.0:
   version "1.4.0"
@@ -231,9 +232,10 @@ supports-color@^7.1.0:
   dependencies:
     has-flag "^4.0.0"
 
-wasm-mock-vm@nearprotocol/wasm-mock-vm:
-  version "1.2.0"
-  resolved "https://codeload.github.com/nearprotocol/wasm-mock-vm/tar.gz/67ac397ff58daf2edc8d87f0e0fcfc5c858325cd"
+wasm-mock-vm@^1.2.1:
+  version "1.2.1"
+  resolved "https://registry.yarnpkg.com/wasm-mock-vm/-/wasm-mock-vm-1.2.1.tgz#a2f8c7b5f3ffe977e9c2a3ee3dd43c76ce4f243c"
+  integrity sha512-ksmOWAFxn8zts/xjyPWX7j2yILVjSW7NFbwzJxs6nrkooRV6xWg8PCV8UN+Nza9jjazTGFOzcs1ljyPa3IapWw==
 
 wrappy@1:
   version "1.0.2"
