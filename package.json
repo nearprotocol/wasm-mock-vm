@@ -25,7 +25,8 @@
     "pkg/wasm*",
     "imports.js",
     "assembly/index.ts",
-    "context.json"
+    "context.json",
+    "assembly/*.ts"
   ],
   "engines": {
     "node": ">=12.0.0"
