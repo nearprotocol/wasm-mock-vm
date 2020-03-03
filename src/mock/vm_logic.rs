@@ -6,8 +6,18 @@ use near_vm_logic::*;
 use wasm_bindgen::prelude::*;
 
 use near_runtime_fees::RuntimeFeesConfig;
-use web_sys::console;
 use crate::utils::*;
+// lifted from the `console_log` example
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(a: &str);
+}
+
+macro_rules! console_log {
+    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
+}
+
 
 
 
@@ -69,8 +79,8 @@ pub struct VM {
 }
 
 #[allow(dead_code)]
-fn print_str(s: &str) {
-    console::log_1(&s.into())
+fn print_str(s: String) {
+    console_log!("{}", s)
 }
 
 
@@ -224,7 +234,7 @@ impl VM {
         let res = self.run_vm(|vm| vm.read_register(register_id, ptr));
         match res {
             Ok(()) => (),
-            Err(VMLogicError::HostError(_e)) => console::log_1(&"Host Error".into()),
+            Err(VMLogicError::HostError(_e)) => console_log!("Host Error"),
             Err(e) => panic!(e)
         }
     }

@@ -1,7 +1,9 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
+* @param {any} wasm_bin 
 */
+export function run(wasm_bin: any): void;
 export class VM {
   free(): void;
 /**
