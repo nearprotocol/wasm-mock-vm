@@ -17,7 +17,7 @@
     "near-sdk-as": "^0.0.2"
   },
   "scripts": {
-    "build": "wasm-pack build --target nodejs",
+    "build": "./setup.sh && wasm-pack build --target nodejs",
     "build:debug": "yarn build --debug",
     "test": "asp"
   },
