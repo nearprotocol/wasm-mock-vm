@@ -1,16 +1,7 @@
 language: rust
-rust:
-  - stable
-  - beta
-  - nightly
 
 jobs:
   include:
-    - name: cargo build and test
-      script:
-      - cargo build --verbose --workspace
-      - cargo test --verbose --workspace
-
     - name: fossa     
       before_script:
         - "curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/fossas/fossa-cli/fc60c6631a5d372d5a45fea35e31665b338f260d/install.sh | sudo bash"
